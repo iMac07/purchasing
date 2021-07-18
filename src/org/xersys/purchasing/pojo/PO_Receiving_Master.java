@@ -1,4 +1,4 @@
-package org.xersys.bili.dto;
+package org.xersys.purchasing.pojo;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -12,14 +12,14 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import org.json.simple.JSONObject;
-import org.xersys.kumander.contants.TransactionStatus;
-import org.xersys.kumander.iface.XEntity;
-import org.xersys.kumander.util.SQLUtil;
+import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.iface.XEntity;
+import org.xersys.commander.util.SQLUtil;
 
 @Entity
-@Table(name="PO_Master")
+@Table(name="PO_Receiving_Master")
 
-public class PO_Master implements Serializable, XEntity {
+public class PO_Receiving_Master implements Serializable, XEntity {
     @Id
     @Basic(optional = false)
     @Column(name = "sTransNox")
@@ -35,20 +35,40 @@ public class PO_Master implements Serializable, XEntity {
     @Column(name = "sCompnyID")
     private String sCompnyID;
     
-    @Column(name = "sDestinat")
-    private String sDestinat;
-    
     @Column(name = "sSupplier")
     private String sSupplier;
     
     @Column(name = "sReferNox")
     private String sReferNox;
     
+    @Basic(optional = false)
+    @Column(name = "dRefernce")
+    @Temporal(TemporalType.DATE)
+    private Date dRefernce;
+    
     @Column(name = "sTermCode")
     private String sTermCode;
     
     @Column(name = "nTranTotl")
     private Number nTranTotl;
+    
+    @Column(name = "nVATRatex")
+    private Number nVATRatex;
+    
+    @Column(name = "nTWithHld")
+    private Number nTWithHld;
+    
+    @Column(name = "nDiscount")
+    private Number nDiscount;
+    
+    @Column(name = "nAddDiscx")
+    private Number nAddDiscx;
+    
+    @Column(name = "nAmtPaidx")
+    private Number nAmtPaidx;
+    
+    @Column(name = "nFreightx")
+    private Number nFreightx;
     
     @Column(name = "sRemarksx")
     private String sRemarksx;
@@ -58,12 +78,6 @@ public class PO_Master implements Serializable, XEntity {
     
     @Column(name = "sSourceCd")
     private String sSourceCd;
-     
-    @Column(name = "cEmailSnt")
-    private String cEmailSnt;
-    
-    @Column(name = "nEmailSnt")
-    private int nEmailSnt;
     
     @Column(name = "nEntryNox")
     private int nEntryNox;
@@ -102,28 +116,37 @@ public class PO_Master implements Serializable, XEntity {
     private Date dPostedxx;
     
     @Basic(optional = false)
+    @Column(name = "dCreatedx")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date dCreatedx;
+    
+    @Basic(optional = false)
     @Column(name = "dModified")
     @Temporal(TemporalType.TIMESTAMP)
     private Date dModified;
     
     LinkedList laColumns = null;
     
-    public PO_Master(){
+    public PO_Receiving_Master(){
         laColumns = new LinkedList();
         laColumns.add("sTransNox");
         laColumns.add("sBranchCd");
         laColumns.add("dTransact");
         laColumns.add("sCompnyID");
-        laColumns.add("sDestinat");
         laColumns.add("sSupplier");
         laColumns.add("sReferNox");
+        laColumns.add("dRefernce");
         laColumns.add("sTermCode");
         laColumns.add("nTranTotl");
+        laColumns.add("nVATRatex");
+        laColumns.add("nTWithHld");
+        laColumns.add("nDiscount");
+        laColumns.add("nAddDiscx");
+        laColumns.add("nAmtPaidx");
+        laColumns.add("nFreightx");
         laColumns.add("sRemarksx");
         laColumns.add("sSourceNo");
         laColumns.add("sSourceCd");
-        laColumns.add("cEmailSnt");
-        laColumns.add("nEmailSnt");
         laColumns.add("nEntryNox");
         laColumns.add("sInvTypCd");
         laColumns.add("cTranStat");
@@ -134,22 +157,26 @@ public class PO_Master implements Serializable, XEntity {
         laColumns.add("sAprvCode");
         laColumns.add("sPostedxx");
         laColumns.add("dPostedxx");
+        laColumns.add("dCreatedx");
         laColumns.add("dModified");
         
         sTransNox = "";
         sBranchCd = "";
         sCompnyID = "";
-        sDestinat = "";
         sSupplier = "";
         sReferNox = "";
         sTermCode = "";
         nTranTotl = 0.00;
+        nVATRatex = 0.00;
+        nTWithHld = 0.00;
+        nDiscount = 0.00;
+        nAddDiscx = 0.00;
+        nAmtPaidx = 0.00;
+        nFreightx = 0.00;
         sRemarksx = "";
         sSourceNo = "";
         sSourceCd = "";
-        cEmailSnt = "0";
-        nEmailSnt = 0;
-        nEntryNox = 0;
+        nEntryNox = -1;
         sInvTypCd = "";
         cTranStat = TransactionStatus.STATE_OPEN;
         sPrepared = "";
@@ -160,9 +187,9 @@ public class PO_Master implements Serializable, XEntity {
     
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof PO_Master)) return false;
+        if (!(object instanceof PO_Receiving_Master)) return false;
         
-        PO_Master other = (PO_Master) object;
+        PO_Receiving_Master other = (PO_Receiving_Master) object;
         
         return !((this.sTransNox == null && other.sTransNox != null) || 
                 (this.sTransNox != null && !this.sTransNox.equals(other.sTransNox)));
@@ -187,27 +214,32 @@ public class PO_Master implements Serializable, XEntity {
             case 2: return sBranchCd;
             case 3: return dTransact;
             case 4: return sCompnyID;
-            case 5: return sDestinat;
-            case 6: return sSupplier;
-            case 7: return sReferNox;
+            case 5: return sSupplier;
+            case 6: return sReferNox;
+            case 7: return dRefernce;
             case 8: return sTermCode;
             case 9: return nTranTotl;
-            case 10: return sRemarksx;
-            case 11: return sSourceNo;
-            case 12: return sSourceCd;
-            case 13: return cEmailSnt;
-            case 14: return nEmailSnt;
-            case 15: return nEntryNox;
-            case 16: return sInvTypCd;
-            case 17: return cTranStat;
-            case 18: return sPrepared;
-            case 19: return dPrepared;
-            case 20: return sApproved;
-            case 21: return dApproved;
-            case 22: return sAprvCode;
-            case 23: return sPostedxx;
-            case 24: return dPostedxx;
-            case 25: return dModified;
+            case 10: return nVATRatex;
+            case 11: return nTWithHld;
+            case 12: return nDiscount;
+            case 13: return nAddDiscx;
+            case 14: return nAmtPaidx;
+            case 15: return nFreightx;
+            case 16: return sRemarksx;
+            case 17: return sSourceNo;
+            case 18: return sSourceCd;
+            case 19: return nEntryNox;
+            case 20: return sInvTypCd;
+            case 21: return cTranStat;
+            case 22: return sPrepared;
+            case 23: return dPrepared;
+            case 24: return sApproved;
+            case 25: return dApproved;
+            case 26: return sAprvCode;
+            case 27: return sPostedxx;
+            case 28: return dPostedxx;
+            case 29: return dCreatedx;
+            case 30: return dModified;
             default: return null;
         }
     }
@@ -242,27 +274,32 @@ public class PO_Master implements Serializable, XEntity {
             case 2: sBranchCd = (String) foValue; break;
             case 3: dTransact = (Date) foValue; break;
             case 4: sCompnyID = (String) foValue; break;
-            case 5: sDestinat = (String) foValue; break;
-            case 6: sSupplier = (String) foValue; break;
-            case 7: sReferNox = (String) foValue; break;
+            case 5: sSupplier = (String) foValue; break;
+            case 6: sReferNox = (String) foValue; break;
+            case 7: dRefernce = (Date) foValue; break;
             case 8: sTermCode = (String) foValue; break;
             case 9: nTranTotl = (Number) foValue; break;
-            case 10: sRemarksx = (String) foValue; break;
-            case 11: sSourceNo = (String) foValue; break;
-            case 12: sSourceCd = (String) foValue; break;
-            case 13: cEmailSnt = (String) foValue; break;
-            case 14: nEmailSnt = (int) (long) foValue; break;
-            case 15: nEntryNox = (int) (long) foValue; break;
-            case 16: sInvTypCd = (String) foValue; break;
-            case 17: cTranStat = (String) foValue; break;
-            case 18: sPrepared = (String) foValue; break;
-            case 19: dPrepared = (Date) foValue; break;
-            case 20: sApproved = (String) foValue; break;
-            case 21: dApproved = (Date) foValue; break;
-            case 22: sAprvCode = (String) foValue; break;
-            case 23: sPostedxx = (String) foValue; break;
-            case 24: dPostedxx = (Date) foValue; break;
-            case 25: dModified = (Date) foValue; break;
+            case 10: nVATRatex = (Number) foValue; break;
+            case 11: nTWithHld = (Number) foValue; break;
+            case 12: nDiscount = (Number) foValue; break;
+            case 13: nAddDiscx = (Number) foValue; break;
+            case 14: nAmtPaidx = (Number) foValue; break;
+            case 15: nFreightx = (Number) foValue; break;
+            case 16: sRemarksx = (String) foValue; break;
+            case 17: sSourceNo = (String) foValue; break;
+            case 18: sSourceCd = (String) foValue; break;
+            case 19: nEntryNox = Integer.parseInt(String.valueOf(foValue)); break;
+            case 20: sInvTypCd = (String) foValue; break;
+            case 21: cTranStat = (String) foValue; break;
+            case 22: sPrepared = (String) foValue; break;
+            case 23: dPrepared = (Date) foValue; break;
+            case 24: sApproved = (String) foValue; break;
+            case 25: dApproved = (Date) foValue; break;
+            case 26: sAprvCode = (String) foValue; break;
+            case 27: sPostedxx = (String) foValue; break;
+            case 28: dPostedxx = (Date) foValue; break;
+            case 29: dCreatedx = (Date) foValue; break;
+            case 30: dModified = (Date) foValue; break;
         }    
     }
 

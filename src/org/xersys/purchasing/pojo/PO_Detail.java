@@ -1,4 +1,4 @@
-package org.xersys.bili.dto;
+package org.xersys.purchasing.pojo;
 
 import java.io.Serializable;
 import java.util.LinkedList;
@@ -9,7 +9,7 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import org.json.simple.JSONObject;
-import org.xersys.kumander.iface.XEntity;
+import org.xersys.commander.iface.XEntity;
 
 @Entity
 @Table(name="PO_Detail")
@@ -124,12 +124,12 @@ public class PO_Detail implements Serializable, XEntity {
     public void setValue(int fnColumn, Object foValue) {
         switch(fnColumn){
             case 1: sTransNox = (String) foValue; break;
-            case 2: nEntryNox = (int) (long) foValue; break;
+            case 2: nEntryNox = Integer.parseInt(String.valueOf(foValue)); break;
             case 3: sStockIDx = (String) foValue; break;
-            case 4: nQuantity = (int) (long) foValue; break;
+            case 4: nQuantity = Integer.parseInt(String.valueOf(foValue)); break;
             case 5: nUnitPrce = (Number) foValue; break;
-            case 6: nReceived = (int) (long) foValue; break;
-            case 7: nCancelld = (int) (long) foValue; break;
+            case 6: nReceived = Integer.parseInt(String.valueOf(foValue)); break;
+            case 7: nCancelld = Integer.parseInt(String.valueOf(foValue)); break;
         }     
     }
 

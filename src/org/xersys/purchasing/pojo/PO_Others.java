@@ -1,4 +1,4 @@
-package org.xersys.bili.dto;
+package org.xersys.purchasing.pojo;
 
 import java.util.LinkedList;
 import org.json.simple.JSONObject;
