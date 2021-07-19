@@ -10,8 +10,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.xersys.purchasing.pojo.PO_Detail;
-import org.xersys.purchasing.pojo.PO_Master;
+import org.xersys.purchasing.pojo.PO_Receiving_Detail;
+import org.xersys.purchasing.pojo.PO_Receiving_Master;
 import org.xersys.purchasing.pojo.PO_Others;
 import org.xersys.lib.pojo.Temp_Transactions;
 import org.xersys.commander.iface.LMasDetTrans;
@@ -26,8 +26,8 @@ import org.xersys.commander.contants.TransactionStatus;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.inventory.search.InvSearchEngine;
 
-public class PurchaseOrder implements XMasDetTrans{
-    private final String SOURCE_CODE = "PO";
+public class POReceiving implements XMasDetTrans{
+    private final String SOURCE_CODE = "PRec";
     
     private XNautilus p_oNautilus;
     private LMasDetTrans p_oListener;
@@ -44,12 +44,12 @@ public class PurchaseOrder implements XMasDetTrans{
     private int p_nEditMode;
     private int p_nTranStat;
     
-    private PO_Master p_oMaster;
-    private ArrayList<PO_Detail> p_oDetail;
+    private PO_Receiving_Master p_oMaster;
+    private ArrayList<PO_Receiving_Detail> p_oDetail;
     private ArrayList<PO_Others> p_oOthers;
     private ArrayList<Temp_Transactions> p_oTemp;
     
-    public PurchaseOrder(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
+    public POReceiving(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
@@ -59,7 +59,7 @@ public class PurchaseOrder implements XMasDetTrans{
         loadTempTransactions();
     }
     
-    public PurchaseOrder(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
+    public POReceiving(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
@@ -181,12 +181,12 @@ public class PurchaseOrder implements XMasDetTrans{
     @Override
     public boolean addDetail() {
         if (p_oDetail.isEmpty()){
-            p_oDetail.add(new PO_Detail());
+            p_oDetail.add(new PO_Receiving_Detail());
             p_oOthers.add(new PO_Others());
         }else{
             if (!"".equals((String) p_oDetail.get(getItemCount() - 1).getValue("sStockIDx")) &&
                 (int) p_oDetail.get(getItemCount() - 1).getValue("nQuantity") != 0){
-                p_oDetail.add(new PO_Detail());
+                p_oDetail.add(new PO_Receiving_Detail());
                 p_oOthers.add(new PO_Others());
             }
         }
@@ -264,7 +264,7 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_sOrderNox = "";
         
-        p_oMaster = new PO_Master();
+        p_oMaster = new PO_Receiving_Master();
         p_oDetail = new ArrayList<>();
         p_oOthers = new ArrayList<>();
         
@@ -327,10 +327,10 @@ public class PurchaseOrder implements XMasDetTrans{
         
         if (!isEntryOK()) return false;
         
-        PO_Master loOldEnt = null;
-        PO_Master loNewEnt = null;
+        PO_Receiving_Master loOldEnt = null;
+        PO_Receiving_Master loNewEnt = null;
 
-        loNewEnt = (PO_Master) p_oMaster;
+        loNewEnt = (PO_Receiving_Master) p_oMaster;
 
         try {
             if (!p_bWithParent) p_oNautilus.beginTrans();
@@ -580,10 +580,10 @@ public class PurchaseOrder implements XMasDetTrans{
             return false;
         }
         
-        lsSQL = "DELETE FROM " + new PO_Detail().getTable() +
+        lsSQL = "DELETE FROM " + new PO_Receiving_Detail().getTable() +
                 " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getValue("sTransNox"));
         
-        if (p_oNautilus.executeUpdate(lsSQL, new PO_Detail().getTable(), p_sBranchCd, "") <= 0){
+        if (p_oNautilus.executeUpdate(lsSQL, new PO_Receiving_Detail().getTable(), p_sBranchCd, "") <= 0){
             if (!p_bWithParent) p_oNautilus.rollbackTrans();
             setMessage(p_oNautilus.getMessage());
             return false;
@@ -731,7 +731,7 @@ public class PurchaseOrder implements XMasDetTrans{
         JSONArray laOthers;
         
         
-        p_oMaster = new PO_Master();
+        p_oMaster = new PO_Receiving_Master();
         p_oDetail = new ArrayList<>();
         p_oOthers = new ArrayList<>();
         
@@ -752,10 +752,10 @@ public class PurchaseOrder implements XMasDetTrans{
             }
             
             JSONObject loDetail;
-            PO_Detail loSalesDet;
+            PO_Receiving_Detail loSalesDet;
             
             for(lnCtr = 0; lnCtr <= laDetail.size()-1; lnCtr++){
-                loSalesDet = new PO_Detail();
+                loSalesDet = new PO_Receiving_Detail();
                 loDetail = (JSONObject) laDetail.get(lnCtr);
                 
                 for(iterator = loDetail.keySet().iterator(); iterator.hasNext();) {
@@ -800,9 +800,9 @@ public class PurchaseOrder implements XMasDetTrans{
         return foConn;
     }
     
-    private boolean saveDetail(PO_Master foMaster, boolean fbNewRecord) throws SQLException{
-        ArrayList<PO_Detail> loDetail = p_oDetail;
-        PO_Detail loOldDet;
+    private boolean saveDetail(PO_Receiving_Master foMaster, boolean fbNewRecord) throws SQLException{
+        ArrayList<PO_Receiving_Detail> loDetail = p_oDetail;
+        PO_Receiving_Detail loOldDet;
         
         int lnCtr;
         int lnRow;
@@ -847,11 +847,11 @@ public class PurchaseOrder implements XMasDetTrans{
         //is the new detail is less than the original count then delete the excess old records
         if (lnCtr < lnRow -1){
             for (lnCtr = lnCtr + 1; lnCtr <= lnRow; lnCtr++){
-                lsSQL = "DELETE FROM " + new PO_Detail().getTable() +  
+                lsSQL = "DELETE FROM " + new PO_Receiving_Detail().getTable() +  
                         " WHERE sTransNox = " + SQLUtil.toSQL((String) foMaster.getValue("sTransNox")) + 
                             " AND nEntryNox = " + lnCtr;
                 
-                if(p_oNautilus.executeUpdate(lsSQL, new PO_Detail().getTable(), p_sBranchCd, "") == 0){
+                if(p_oNautilus.executeUpdate(lsSQL, new PO_Receiving_Detail().getTable(), p_sBranchCd, "") == 0){
                     if(!p_oNautilus.getMessage().isEmpty()) 
                         setMessage(p_oNautilus.getMessage());
                 }else {
@@ -864,10 +864,10 @@ public class PurchaseOrder implements XMasDetTrans{
         return true;
     }
     
-    private PO_Detail loadDetail(String fsTransNox, int fnEntryNox) throws SQLException{
-        PO_Detail loObj = new PO_Detail();
+    private PO_Receiving_Detail loadDetail(String fsTransNox, int fnEntryNox) throws SQLException{
+        PO_Receiving_Detail loObj = new PO_Receiving_Detail();
         
-        String lsSQL = MiscUtil.addCondition(MiscUtil.makeSelect(new PO_Detail()), 
+        String lsSQL = MiscUtil.addCondition(MiscUtil.makeSelect(new PO_Receiving_Detail()), 
                                                     "sTransNox = " + SQLUtil.toSQL(fsTransNox)) + 
                                                     " AND nEntryNox = " + fnEntryNox;
         
@@ -884,18 +884,18 @@ public class PurchaseOrder implements XMasDetTrans{
         return loObj;
     }
     
-    private ArrayList<PO_Detail> loadDetail(String fsTransNox) throws SQLException{
-        PO_Detail loOcc = null;        
+    private ArrayList<PO_Receiving_Detail> loadDetail(String fsTransNox) throws SQLException{
+        PO_Receiving_Detail loOcc = null;        
         
-        ArrayList<PO_Detail> loDetail = new ArrayList<>();
+        ArrayList<PO_Receiving_Detail> loDetail = new ArrayList<>();
         
-        ResultSet loRS = p_oNautilus.executeQuery(MiscUtil.addCondition(MiscUtil.makeSelect(new PO_Detail()), 
+        ResultSet loRS = p_oNautilus.executeQuery(MiscUtil.addCondition(MiscUtil.makeSelect(new PO_Receiving_Detail()), 
                                                     "sTransNox = " + SQLUtil.toSQL(fsTransNox)));
                
         for (int lnCtr = 1; lnCtr <= MiscUtil.RecordCount(loRS); lnCtr ++){
             loRS.absolute(lnCtr);
             
-            loOcc = new PO_Detail();
+            loOcc = new PO_Receiving_Detail();
             
             for(int lnCol=1; lnCol<=loRS.getMetaData().getColumnCount(); lnCol++){
                 loOcc.setValue(lnCol, loRS.getObject(lnCol));
@@ -906,9 +906,9 @@ public class PurchaseOrder implements XMasDetTrans{
         return loDetail;
     }
     
-    private PO_Master loadMaster(String fsTransNox) throws SQLException{
-        PO_Master loMaster = new PO_Master();        
-        ArrayList<PO_Detail> loDetail = new ArrayList<>();
+    private PO_Receiving_Master loadMaster(String fsTransNox) throws SQLException{
+        PO_Receiving_Master loMaster = new PO_Receiving_Master();        
+        ArrayList<PO_Receiving_Detail> loDetail = new ArrayList<>();
         
         String lsSQL = MiscUtil.addCondition(MiscUtil.makeSelect(loMaster), "sTransNox = " + SQLUtil.toSQL(fsTransNox));
         ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
