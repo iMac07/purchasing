@@ -12,9 +12,9 @@ import org.json.simple.JSONObject;
 import org.xersys.commander.iface.XEntity;
 
 @Entity
-@Table(name="PO_Receiving_Detail")
+@Table(name="PO_Return_Detail")
 
-public class PO_Receiving_Detail implements Serializable, XEntity {
+public class PO_Return_Detail implements Serializable, XEntity {
     @Id
     @Basic(optional = false)
     @Column(name = "sTransNox")
@@ -23,14 +23,8 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
     @Column(name = "nEntryNox")
     private int nEntryNox;
     
-    @Column(name = "sOrderNox")
-    private String sOrderNox;
-    
     @Column(name = "sStockIDx")
     private String sStockIDx;
-    
-    @Column(name = "sReplacID")
-    private String sReplacID;
     
     @Column(name = "cUnitType")
     private String cUnitType;
@@ -47,13 +41,11 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
     
     LinkedList laColumns = null;
     
-    public PO_Receiving_Detail(){
+    public PO_Return_Detail(){
         laColumns = new LinkedList();
         laColumns.add("sTransNox");
         laColumns.add("nEntryNox");
-        laColumns.add("sOrderNox");
         laColumns.add("sStockIDx");
-        laColumns.add("sReplacID");
         laColumns.add("cUnitType");
         laColumns.add("nQuantity");
         laColumns.add("nUnitPrce");
@@ -61,9 +53,7 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
         
         sTransNox = "";
         nEntryNox = -1;
-        sOrderNox = "";
         sStockIDx = "";
-        sReplacID = "";
         cUnitType = "";
         nQuantity = 0;
         nUnitPrce = 0.00;
@@ -72,9 +62,9 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
     
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof PO_Receiving_Detail)) return false;
+        if (!(object instanceof PO_Return_Detail)) return false;
         
-        PO_Receiving_Detail other = (PO_Receiving_Detail) object;
+        PO_Return_Detail other = (PO_Return_Detail) object;
         
         return !((sTransNox == null && other.sTransNox != null) || 
                 (sTransNox != null && !sTransNox.equals(other.sTransNox))) &&
@@ -99,13 +89,11 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
         switch(fnColumn){
             case 1: return sTransNox;
             case 2: return nEntryNox;
-            case 3: return sOrderNox;
-            case 4: return sStockIDx;
-            case 5: return sReplacID;
-            case 6: return cUnitType;
-            case 7: return nQuantity;
-            case 8: return nUnitPrce;
-            case 9: return nFreightx;
+            case 3: return sStockIDx;
+            case 4: return cUnitType;
+            case 5: return nQuantity;
+            case 6: return nUnitPrce;
+            case 7: return nFreightx;
             default: return null;
         }
     }
@@ -138,13 +126,11 @@ public class PO_Receiving_Detail implements Serializable, XEntity {
         switch(fnColumn){
             case 1: sTransNox = (String) foValue; break;
             case 2: nEntryNox = Integer.parseInt(String.valueOf(foValue)); break;
-            case 3: sOrderNox = (String) foValue; break;
-            case 4: sStockIDx = (String) foValue; break;
-            case 5: sReplacID = (String) foValue; break;
-            case 6: cUnitType = (String) foValue; break;
-            case 7: nQuantity = Integer.parseInt(String.valueOf(foValue)); break;
-            case 8: nUnitPrce = (Number) foValue; break;
-            case 9: nFreightx = (Number) foValue; break;
+            case 3: sStockIDx = (String) foValue; break;
+            case 4: cUnitType = (String) foValue; break;
+            case 5: nQuantity = Integer.parseInt(String.valueOf(foValue)); break;
+            case 6: nUnitPrce = (Number) foValue; break;
+            case 7: nFreightx = (Number) foValue; break;
         }     
     }
 
