@@ -23,10 +23,11 @@ import org.xersys.commander.util.SQLUtil;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.iface.XSearchTran;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.inventory.search.InvSearchEngine;
 
-public class POReturn implements XMasDetTrans{
+public class POReturn implements XMasDetTrans, XSearchTran{
     private final String SOURCE_CODE = "PRet";
     
     private XNautilus p_oNautilus;
