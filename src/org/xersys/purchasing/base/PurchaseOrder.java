@@ -23,11 +23,11 @@ import org.xersys.commander.util.SQLUtil;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
-import org.xersys.commander.iface.XSearchTran;
+import org.xersys.commander.iface.XSearchRecord;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.inventory.search.InvSearchEngine;
 
-public class PurchaseOrder implements XMasDetTrans, XSearchTran{
+public class PurchaseOrder implements XMasDetTrans, XSearchRecord{
     private final String SOURCE_CODE = "PO";
     
     private XNautilus p_oNautilus;
@@ -992,5 +992,10 @@ public class PurchaseOrder implements XMasDetTrans, XSearchTran{
                     if (!lbExist) addDetail();
                 }
         }
+    }
+
+    @Override
+    public JSONObject SearchRecord(String fsValue, String fsKey, String fsFilter, int fnMaxRow, boolean fbExact) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }
