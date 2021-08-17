@@ -234,7 +234,7 @@ public class POReceiving implements XMasDetTrans, XSearchRecord{
         
         p_oInventory.Search().setKey(fsKey);
         p_oInventory.Search().setFilter(fsFilter);
-        p_oInventory.Search().sethMax(fnMaxRow);
+        p_oInventory.Search().setMax(fnMaxRow);
         p_oInventory.Search().setExact(fbExact);
 
         return p_oInventory.Search().Search(foType, fsValue);
