@@ -29,10 +29,10 @@ import org.xersys.lib.pojo.Temp_Transactions;
 import org.xersys.parameters.search.ParamSearchF;
 import org.xersys.purchasing.search.PurchasingSearch;
 
-public class PurchaseOrder implements XMasDetTrans{
-    private final String MASTER_TABLE = "PO_Master";
-    private final String DETAIL_TABLE = "PO_Detail";
-    private final String SOURCE_CODE = "PO";
+public class POReturn implements XMasDetTrans{
+    private final String MASTER_TABLE = "PO_Return_Master";
+    private final String DETAIL_TABLE = "PO_Return_Detail";
+    private final String SOURCE_CODE = "PRet";
     
     private final XNautilus p_oNautilus;
     private final boolean p_bWithParent;
@@ -57,22 +57,24 @@ public class PurchaseOrder implements XMasDetTrans{
     private ClientSearch p_oSearchSupplier;
     private ParamSearchF p_oSearchTerm;
     private PurchasingSearch p_oSearchTrans;
+    private PurchasingSearch p_oSearchSource;
 
-    public PurchaseOrder(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
+    public POReturn(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
         p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
         p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
-        p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPO);
+        p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReturn);
+        p_oSearchSource = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReceiving);
         
         loadTempTransactions();
     }
     
-    public PurchaseOrder(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
+    public POReturn(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
@@ -118,6 +120,9 @@ public class PurchaseOrder implements XMasDetTrans{
                     return;
                 case "sTermCode":
                     getTerm("sTermCode", foValue);
+                    return;
+                case "sSourceNo":
+                    getSource("sTransNox", foValue);
                     return;
                 default:
                     p_oMaster.updateObject(fsFieldNm, foValue);
@@ -539,6 +544,10 @@ public class PurchaseOrder implements XMasDetTrans{
                 setMessage("Transaction was already approved.");
                 return false;
             }
+
+            if (!p_bWithParent) p_oNautilus.beginTrans();
+            
+            if (!saveInvTrans()) return false;
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
@@ -551,6 +560,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
+            if (!p_bWithParent) p_oNautilus.commitTrans();
+            
             p_nEditMode  = EditMode.UNKNOWN;
             return true; 
         } catch (SQLException ex) {
@@ -681,9 +692,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
-            if (!p_bWithParent) p_oNautilus.beginTrans();
-            
-            if (!saveInvTrans()) return false;
+            //todo:
+            //  check if user level validation is still needed
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
@@ -691,14 +701,12 @@ public class PurchaseOrder implements XMasDetTrans{
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
-                if (!p_bWithParent) p_oNautilus.rollbackTrans();
                 setMessage(p_oNautilus.getMessage());
                 return false;
             }
-            
-            if (!p_bWithParent) p_oNautilus.commitTrans();
 
             p_nEditMode  = EditMode.UNKNOWN;
+
             return true;
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -762,22 +770,40 @@ public class PurchaseOrder implements XMasDetTrans{
         return p_oSearchTrans;
     }
     
+    public JSONObject searchSource(String fsKey, Object foValue, boolean fbExact){
+        p_oSearchSource.setKey(fsKey);
+        p_oSearchSource.setValue(foValue);
+        p_oSearchSource.setExact(fbExact);
+        
+        p_oSearchSource.addFilter("Status", 2);
+        
+        return p_oSearchSource.Search();
+    }
+    
+    public PurchasingSearch getSearchSource(){
+        return p_oSearchSource;
+    }
+    
     private String getSQ_Master(){
         return "SELECT" +
                     "  a.sTransNox" +
                     ", a.sBranchCd" +
                     ", a.dTransact" +
                     ", a.sCompnyID" +
-                    ", a.sDestinat" +
                     ", a.sSupplier" +
                     ", a.sReferNox" +
+                    ", a.dRefernce" +
                     ", a.sTermCode" +
                     ", a.nTranTotl" +
+                    ", a.nVATRatex" +
+                    ", a.nTWithHld" +
+                    ", a.nDiscount" +
+                    ", a.nAddDiscx" +
+                    ", a.nAmtPaidx" +
+                    ", a.nFreightx" +
                     ", a.sRemarksx" +
                     ", a.sSourceNo" +
                     ", a.sSourceCd" +
-                    ", a.cEmailSnt" +
-                    ", a.nEmailSnt" +
                     ", a.nEntryNox" +
                     ", a.sInvTypCd" +
                     ", a.cTranStat" +
@@ -800,15 +826,17 @@ public class PurchaseOrder implements XMasDetTrans{
     private String getSQ_Detail(){
         return "SELECT" +
                     "  a.sTransNox" +
-                    ", a.nEntryNox" +
+                    ", a.nEntryNox" +	
+                    ", a.sOrderNox" +	
                     ", a.sStockIDx" +
+                    ", a.sReplacID" +	
+                    ", a.cUnitType" +
                     ", a.nQuantity" +
-                    ", a.nUnitPrce" +
-                    ", a.nReceived" +
-                    ", a.nCancelld" +
+                    ", a.nUnitPrce" +	
+                    ", a.nFreightx" +	
                     ", b.sBarCodex" +
                     ", b.sDescript" +
-                    ", IFNULL(c.nQtyOnHnd, 0) nQtyOnHnd" +
+                    ", c.nQtyOnHnd" +
                     ", b.sBrandCde" + 
                     ", b.sModelCde" +
                     ", b.sColorCde" +
@@ -942,6 +970,7 @@ public class PurchaseOrder implements XMasDetTrans{
                 if (loMaster.get(lsIndex) != null){
                     switch(lsKey){
                         case "dTransact":
+                        case "dRefernce":
                             p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_SHORT_DATE));
                             break;
                         default:
@@ -1007,12 +1036,9 @@ public class PurchaseOrder implements XMasDetTrans{
 
             //assign values to master record
             p_oMaster.first();
-            p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
             p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
-            
-            if (((String) p_oMaster.getObject("sDestinat")).isEmpty())
-                p_oMaster.updateObject("sDestinat", (String) p_oNautilus.getBranchConfig("sBranchCd"));
-            
+            if (((String) p_oMaster.getObject("sBranchCd")).isEmpty())
+                p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
 
             String lsSQL = "SELECT dCreatedx FROM xxxTempTransactions" +
                             " WHERE sSourceCd = " + SQLUtil.toSQL(SOURCE_CODE) +
@@ -1039,6 +1065,7 @@ public class PurchaseOrder implements XMasDetTrans{
         p_oMaster.moveToInsertRow();
         
         MiscUtil.initRowSet(p_oMaster);
+        p_oMaster.updateObject("dRefernce", p_oNautilus.getServerDate());
         p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
         
         p_oMaster.insertRow();
@@ -1048,8 +1075,7 @@ public class PurchaseOrder implements XMasDetTrans{
     private void computeTotal() throws SQLException{        
         int lnQuantity;
         double lnUnitPrce;
-        double lnDiscount;
-        double lnAddDiscx;
+        double lnFreightx;
         double lnDetlTotl;
         
         double lnTranTotal = 0.00;
@@ -1058,9 +1084,10 @@ public class PurchaseOrder implements XMasDetTrans{
         for (int lnCtr = 0; lnCtr < lnRow; lnCtr++){
             lnQuantity = Integer.parseInt(String.valueOf(getDetail(lnCtr, "nQuantity")));
             lnUnitPrce = ((Number)getDetail(lnCtr, "nUnitPrce")).doubleValue();
+            lnFreightx = ((Number)getDetail(lnCtr, "nFreightx")).doubleValue();
             lnDetlTotl = lnQuantity * lnUnitPrce;
             
-            lnTranTotal += lnDetlTotl;
+            lnTranTotal += lnDetlTotl + lnFreightx;
         }
         
         p_oMaster.first();
@@ -1151,6 +1178,71 @@ public class PurchaseOrder implements XMasDetTrans{
         }
     }
     
+    private void getSource(String fsFieldNm, Object foValue) throws SQLException, ParseException{       
+        JSONObject loJSON = searchSource(fsFieldNm, foValue, true);
+        JSONParser loParser = new JSONParser();
+
+        if ("success".equals((String) loJSON.get("result"))){
+            loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+            
+            
+            PurchaseOrder loOrder = new PurchaseOrder(p_oNautilus, p_sBranchCd, true);
+            loOrder.setSaveToDisk(false);
+            loOrder.setTranStat(2);
+            //open PO
+            if (loOrder.OpenTransaction((String) loJSON.get("sTransNox"))){
+                //assign master
+                p_oMaster.first();
+                p_oMaster.updateObject("sBranchCd", (String) loOrder.getMaster("sBranchCd"));
+                p_oMaster.updateObject("sCompnyID", (String) loOrder.getMaster("sCompnyID"));
+                p_oMaster.updateObject("sInvTypCd", (String) loOrder.getMaster("sInvTypCd"));
+                p_oMaster.updateObject("sSourceNo", (String) loOrder.getMaster("sTransNox"));
+                p_oMaster.updateObject("sSourceCd", "PO");
+                p_oMaster.updateRow();
+                
+                if (((String) loOrder.getMaster("sSupplier")).isEmpty()){
+                    p_oMaster.first();
+                    p_oMaster.updateObject("sSupplier", "");
+                    p_oMaster.updateObject("sClientNm", "");
+                    p_oMaster.updateRow();
+                    
+                    if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", "");
+                } else setMaster("sSupplier", (String) loOrder.getMaster("sSupplier"));
+                
+                if (((String) loOrder.getMaster("sTermCode")).isEmpty()){
+                    p_oMaster.first();
+                    p_oMaster.updateObject("sTermCode", "");
+                    p_oMaster.updateObject("sTermName", "");
+                    p_oMaster.updateRow();
+                    
+                    if (p_oListener != null) p_oListener.MasterRetreive("sTermCode", "");
+                } else setMaster("sTermCode", (String) loOrder.getMaster("sTermCode"));
+                
+                
+                //create empty detail record
+                RowSetFactory factory = RowSetProvider.newFactory();
+                String lsSQL = MiscUtil.addCondition(getSQ_Detail(), "0=1");
+                ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+                p_oDetail = factory.createCachedRowSet();
+                p_oDetail.populate(loRS);
+                MiscUtil.close(loRS);
+                addDetail();
+            
+                //assign detail
+                int lnRow;
+                int lnCtr;
+                for (lnCtr = 0; lnCtr <= loOrder.getItemCount()-1; lnCtr++){
+                    lnRow = getItemCount() - 1;
+                    setDetail(lnRow, "sStockIDx", (String) loOrder.getDetail(lnCtr, "sStockIDx"));
+                    setDetail(lnRow, "nQuantity", (int) loOrder.getDetail(lnCtr, "nQuantity"));
+                }
+            }
+            
+            if (p_oListener != null) p_oListener.MasterRetreive("sReferNox", getMaster("sReferNox"));
+            saveToDisk(RecordStatus.ACTIVE, "");
+        }
+    }
+    
     private boolean saveInvTrans() throws SQLException{
         InvTrans loTrans = new InvTrans(p_oNautilus, p_sBranchCd);
         int lnRow = getItemCount();
@@ -1168,7 +1260,7 @@ public class PurchaseOrder implements XMasDetTrans{
                     loTrans.setMaster(lnCtr, "nQtyIssue", p_oDetail.getInt("nQuantity"));
             }
             
-            if (!loTrans.PurchaseOrder(p_oMaster.getString("sTransNox"), 
+            if (!loTrans.POReceiving(p_oMaster.getString("sTransNox"), 
                                         p_oMaster.getDate("dTransact"), 
                                         p_oMaster.getString("sSupplier"),
                                         EditMode.ADDNEW)){

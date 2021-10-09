@@ -23,6 +23,7 @@ import org.xersys.commander.util.CommonUtil;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
 import org.xersys.commander.util.StringUtil;
+import org.xersys.inventory.base.InvTrans;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
 import org.xersys.parameters.search.ParamSearchF;
@@ -546,16 +547,23 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
+            if (!p_bWithParent) p_oNautilus.beginTrans();
+            
+            if (!saveInvTrans()) return false;
+            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
                 setMessage(p_oNautilus.getMessage());
                 return false;
             }
 
+            if (!p_bWithParent) p_oNautilus.commitTrans();
+            
             p_nEditMode  = EditMode.UNKNOWN;
             return true; 
         } catch (SQLException ex) {
@@ -1232,8 +1240,40 @@ public class POReceiving implements XMasDetTrans{
                 }
             }
             
-            if (p_oListener != null) p_oListener.MasterRetreive("sReferNox", getMaster("sReferNox"));
+            if (p_oListener != null) p_oListener.MasterRetreive("sSourceNo", getMaster("sSourceNo"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
+    }
+    
+    private boolean saveInvTrans() throws SQLException{
+        InvTrans loTrans = new InvTrans(p_oNautilus, p_sBranchCd);
+        int lnRow = getItemCount();
+        
+        if (loTrans.InitTransaction()){
+            p_oMaster.first();
+            for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
+                p_oDetail.absolute(lnCtr + 1);
+                loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
+                loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nQuantity"));
+            
+                if ("X0W1".contains(p_oMaster.getString("sBranchCd")))
+                    loTrans.setMaster(lnCtr, "nQtyOrder", p_oDetail.getInt("nQuantity"));
+                else
+                    loTrans.setMaster(lnCtr, "nQtyIssue", p_oDetail.getInt("nQuantity"));
+            }
+            
+            if (!loTrans.POReceiving(p_oMaster.getString("sTransNox"), 
+                                        p_oMaster.getDate("dTransact"), 
+                                        p_oMaster.getString("sSupplier"),
+                                        EditMode.ADDNEW)){
+                setMessage(loTrans.getMessage());
+                return false;
+            }
+            
+            return true;
+        }
+        
+        setMessage(loTrans.getMessage());
+        return false;
     }
 }
