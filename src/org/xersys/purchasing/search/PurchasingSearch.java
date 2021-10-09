@@ -460,6 +460,7 @@ public class PurchasingSearch implements iSearch{
     //let outside objects can call this variable without initializing the class.
     public static enum SearchType{
         searchPO,
-        searchPOReceiving
+        searchPOReceiving,
+        searchPOReturn
     }
 }
