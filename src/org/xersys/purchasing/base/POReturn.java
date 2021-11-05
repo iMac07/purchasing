@@ -360,6 +360,8 @@ public class POReturn implements XMasDetTrans{
     public boolean SaveTransaction(boolean fbConfirmed) {
         System.out.println(this.getClass().getSimpleName() + ".SaveTransaction()");
         
+        setMessage("");
+        
         if (p_nEditMode != EditMode.ADDNEW &&
             p_nEditMode != EditMode.UPDATE){
             System.err.println("Transaction is not on update mode.");
