@@ -55,7 +55,6 @@ public class POReturn implements XMasDetTrans{
     
     private InvSearchF p_oSearchItem;
     private ClientSearch p_oSearchSupplier;
-    private ParamSearchF p_oSearchTerm;
     private PurchasingSearch p_oSearchTrans;
     private PurchasingSearch p_oSearchSource;
 
@@ -67,7 +66,6 @@ public class POReturn implements XMasDetTrans{
         
         p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
         p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
-        p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
         p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReturn);
         p_oSearchSource = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReceiving);
         
@@ -118,10 +116,7 @@ public class POReturn implements XMasDetTrans{
                 case "sSupplier":
                     getSupplier("a.sClientID", foValue);
                     return;
-                case "sTermCode":
-                    getTerm("sTermCode", foValue);
-                    return;
-                case "sSourceNo":
+                case "sPOTransx":
                     getSource("sTransNox", foValue);
                     return;
                 default:
@@ -746,18 +741,6 @@ public class POReturn implements XMasDetTrans{
         return p_oSearchSupplier;
     }
     
-    public JSONObject searchTerm(String fsKey, Object foValue, boolean fbExact){
-        p_oSearchTerm.setKey(fsKey);
-        p_oSearchTerm.setValue(foValue);
-        p_oSearchTerm.setExact(fbExact);
-        
-        return p_oSearchTerm.Search();
-    }
-    
-    public ParamSearchF getSearchTerm(){
-        return p_oSearchTerm;
-    }
-    
     public JSONObject searchTransaction(String fsKey, Object foValue, boolean fbExact){
         p_oSearchTrans.setKey(fsKey);
         p_oSearchTrans.setValue(foValue);
@@ -793,19 +776,17 @@ public class POReturn implements XMasDetTrans{
                     ", a.dTransact" +
                     ", a.sCompnyID" +
                     ", a.sSupplier" +
-                    ", a.sReferNox" +
-                    ", a.dRefernce" +
-                    ", a.sTermCode" +
                     ", a.nTranTotl" +
                     ", a.nVATRatex" +
                     ", a.nTWithHld" +
                     ", a.nDiscount" +
                     ", a.nAddDiscx" +
-                    ", a.nAmtPaidx" +
                     ", a.nFreightx" +
                     ", a.sRemarksx" +
+                    ", a.nAmtPaidx" +
                     ", a.sSourceNo" +
                     ", a.sSourceCd" +
+                    ", a.sPOTransx" +
                     ", a.nEntryNox" +
                     ", a.sInvTypCd" +
                     ", a.cTranStat" +
@@ -828,13 +809,11 @@ public class POReturn implements XMasDetTrans{
     private String getSQ_Detail(){
         return "SELECT" +
                     "  a.sTransNox" +
-                    ", a.nEntryNox" +	
-                    ", a.sOrderNox" +	
+                    ", a.nEntryNox" +
                     ", a.sStockIDx" +
-                    ", a.sReplacID" +	
                     ", a.cUnitType" +
                     ", a.nQuantity" +
-                    ", a.nUnitPrce" +	
+                    ", a.nUnitPrce" +
                     ", a.nFreightx" +	
                     ", b.sBarCodex" +
                     ", b.sDescript" +
@@ -972,7 +951,6 @@ public class POReturn implements XMasDetTrans{
                 if (loMaster.get(lsIndex) != null){
                     switch(lsKey){
                         case "dTransact":
-                        case "dRefernce":
                             p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_SHORT_DATE));
                             break;
                         default:
@@ -1067,7 +1045,6 @@ public class POReturn implements XMasDetTrans{
         p_oMaster.moveToInsertRow();
         
         MiscUtil.initRowSet(p_oMaster);
-        p_oMaster.updateObject("dRefernce", p_oNautilus.getServerDate());
         p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
         
         p_oMaster.insertRow();
@@ -1159,23 +1136,6 @@ public class POReturn implements XMasDetTrans{
             p_oMaster.updateRow();            
             
             if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
-            saveToDisk(RecordStatus.ACTIVE, "");
-        }
-    }
-    
-    private void getTerm(String fsFieldNm, Object foValue) throws SQLException, ParseException{       
-        JSONObject loJSON = searchTerm(fsFieldNm, foValue, true);
-        JSONParser loParser = new JSONParser();
-
-        if ("success".equals((String) loJSON.get("result"))){
-            loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
-
-            p_oMaster.first();
-            p_oMaster.updateObject("sTermCode", (String) loJSON.get("sTermCode"));
-            p_oMaster.updateObject("sTermName", (String) loJSON.get("sDescript"));
-            p_oMaster.updateRow();            
-            
-            if (p_oListener != null) p_oListener.MasterRetreive("sTermCode", (String) p_oMaster.getObject("sTermName"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
     }
