@@ -127,6 +127,19 @@ public class POReceiving implements XMasDetTrans{
                 case "sSourceNo":
                     getSource("sTransNox", foValue);
                     return;
+                case "nVATRatex":    
+                case "nTWithHld":
+                case "nDiscount":
+                case "nAddDiscx":
+                case "nAmtPaidx":
+                case "nFreightx":
+                    if (StringUtil.isNumeric(String.valueOf(foValue)))
+                        p_oMaster.updateObject(fsFieldNm, foValue);
+                    else
+                        p_oMaster.updateObject(fsFieldNm, 0.00);
+                    
+                    p_oMaster.updateRow();
+                    break;
                 default:
                     p_oMaster.updateObject(fsFieldNm, foValue);
                     p_oMaster.updateRow();
@@ -564,7 +577,9 @@ public class POReceiving implements XMasDetTrans{
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -613,7 +628,7 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
-            String lsSQL = "UPDATE " + p_oMaster.getTableName()+ " SET" +
+            String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));

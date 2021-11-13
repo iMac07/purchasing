@@ -800,10 +800,8 @@ public class POReturn implements XMasDetTrans{
                     ", a.dCreatedx" +
                     ", a.dModified" +
                     ", IFNULL(b.sClientNm, '') sClientNm" +
-                    ", IFNULL(c.sDescript, '') sTermName" +
                 " FROM " + MASTER_TABLE + " a" +
-                    " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID" +
-                    " LEFT JOIN Term c ON a.sTermCode = c.sTermCode";
+                    " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID";
     }
     
     private String getSQ_Detail(){
