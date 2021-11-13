@@ -12,6 +12,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.xersys.clients.base.APClient;
 import org.xersys.clients.search.ClientSearch;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
@@ -126,6 +127,19 @@ public class POReceiving implements XMasDetTrans{
                 case "sSourceNo":
                     getSource("sTransNox", foValue);
                     return;
+                case "nVATRatex":    
+                case "nTWithHld":
+                case "nDiscount":
+                case "nAddDiscx":
+                case "nAmtPaidx":
+                case "nFreightx":
+                    if (StringUtil.isNumeric(String.valueOf(foValue)))
+                        p_oMaster.updateObject(fsFieldNm, foValue);
+                    else
+                        p_oMaster.updateObject(fsFieldNm, 0.00);
+                    
+                    p_oMaster.updateRow();
+                    break;
                 default:
                     p_oMaster.updateObject(fsFieldNm, foValue);
                     p_oMaster.updateRow();
@@ -551,9 +565,21 @@ public class POReceiving implements XMasDetTrans{
             
             if (!saveInvTrans()) return false;
             
+            if (!updatePODetail()){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
+                return false;
+            }
+            
+            if (!updateAPClient()){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
+                return false;
+            }
+            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -602,7 +628,7 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
-            String lsSQL = "UPDATE " + p_oMaster.getTableName()+ " SET" +
+            String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -1276,4 +1302,94 @@ public class POReceiving implements XMasDetTrans{
         setMessage(loTrans.getMessage());
         return false;
     }
+    
+    private boolean updateAPClient(){
+        APClient loClient = new APClient(p_oNautilus, p_sBranchCd, true);
+        if (loClient.OpenRecord((String) getMaster("sSupplier"))){
+            if (loClient.getEditMode() == EditMode.READY){
+                if (loClient.UpdateRecord()){
+                    loClient.setMaster("nABalance", Double.valueOf(String.valueOf(loClient.getMaster("nABalance"))) + 
+                                                    Double.valueOf(String.valueOf(getMaster("nTranTotl"))));
+                    
+                    if (loClient.getMaster("dCltSince") == null){
+                        loClient.setMaster("dCltSince", getMaster("dRefernce"));
+                    }
+                    
+                    if (!loClient.SaveRecord()){
+                        p_sMessagex = "Unable to update AP record.";
+                        return false;
+                    }
+                } else {
+                    p_sMessagex = "Unable to update AP record.";
+                    return false;
+                }
+            } else {
+                p_sMessagex = "AP record for this supplier does not exist.\n" +
+                                "Please create first before confirmation of this transaction.";
+                return false;
+            }
+            
+            return true;
+        } else {
+            p_sMessagex = "AP record for this supplier does not exist.\n" +
+                                "Please create first before confirmation of this transaction.";
+            return false;
+        }
+    }
+    
+    private boolean updatePODetail(){
+        String lsSourceCd = String.valueOf(getMaster("sSourceCd"));
+        String lsSourceNo = String.valueOf(getMaster("sSourceNo"));
+        
+        int lnCtr;
+        int lnRow;
+        String lsSQL;
+        
+        if (lsSourceCd.equals("PO")){
+            lnRow = getItemCount();
+            
+            if (lsSourceNo.isEmpty()){
+                for (lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
+                    if (!String.valueOf(getDetail(lnCtr, "sOrderNox")).isEmpty()){
+                        lsSQL = "UPDATE PO_Detail SET" +
+                                " nReceived = nReceived + " + (int) getDetail(lnCtr, "nQuantity") +
+                                " WHERE sTransNox = " + SQLUtil.toSQL(String.valueOf(getDetail(lnCtr, "sOrderNox"))) +
+                                    " AND sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+                        
+                        if(p_oNautilus.executeUpdate(lsSQL, "PO_Detail", p_sBranchCd, "") <= 0){
+                            p_sMessagex = "Unable to update PO Detail";
+                            return false;
+                        } 
+                    }
+                }
+            } else {
+                for (lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
+                    if (!String.valueOf(getDetail(lnCtr, "sOrderNox")).isEmpty()){
+                        lsSQL = "UPDATE PO_Detail SET" +
+                                " nReceived = nReceived + " + (int) getDetail(lnCtr, "nQuantity") +
+                                " WHERE sTransNox = " + SQLUtil.toSQL(String.valueOf(getDetail(lnCtr, "sOrderNox"))) +
+                                    " AND sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+                        
+                        if(p_oNautilus.executeUpdate(lsSQL, "PO_Detail", p_sBranchCd, "") <= 0){
+                            p_sMessagex = "Unable to update PO Detail";
+                            return false;
+                        } 
+                    } else {
+                        lsSQL = "UPDATE PO_Detail SET" +
+                                " nReceived = nReceived + " + (int) getDetail(lnCtr, "nQuantity") +
+                                " WHERE sTransNox = " + SQLUtil.toSQL(lsSourceNo) +
+                                    " AND sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+                        
+                        if(p_oNautilus.executeUpdate(lsSQL, "PO_Detail", p_sBranchCd, "") <= 0){
+                            p_sMessagex = "Unable to update PO Detail";
+                            return false;
+                        } 
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
 }
+
