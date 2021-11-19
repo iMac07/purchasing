@@ -355,8 +355,7 @@ public class PurchaseOrder implements XMasDetTrans{
     public boolean SaveTransaction(boolean fbConfirmed) {
         System.out.println(this.getClass().getSimpleName() + ".SaveTransaction()");
         
-        if (p_nEditMode != EditMode.ADDNEW &&
-            p_nEditMode != EditMode.UPDATE){
+        if (p_nEditMode != EditMode.ADDNEW){
             System.err.println("Transaction is not on update mode.");
             return false;
         }
@@ -377,6 +376,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 Connection loConn = getConnection();
 
                 p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, loConn, p_sBranchCd));
+                p_oMaster.updateObject("sPrepared", (String) p_oNautilus.getUserInfo("sUserIDxx"));
+                p_oMaster.updateObject("dPrepared", p_oNautilus.getServerDate());
                 p_oMaster.updateObject("dModified", p_oNautilus.getServerDate());
                 p_oMaster.updateRow();
                 
@@ -406,7 +407,6 @@ public class PurchaseOrder implements XMasDetTrans{
                 }
                 
                 lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "sClientNm;sTermName");
-            } else { //old record
             }
             
             if (lsSQL.equals("")){
@@ -526,12 +526,17 @@ public class PurchaseOrder implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve cancelled transactons");
+                setMessage("This transaction was already cancelled. Unable to close transaction.");
                 return false;
             }        
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve posted transactons");
+                setMessage("This transaction was already posted. Unable to close transaction.");
+                return false;
+            }
+            
+            if (("4").equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was fully served. Unable to close transaction.");
                 return false;
             }
 
@@ -542,7 +547,9 @@ public class PurchaseOrder implements XMasDetTrans{
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -576,20 +583,22 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level/approval code here if we will allow them to cancel approved/posted transactions
-
             if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){   
-                setMessage("Unable to cancel approved transactions.");
+                setMessage("This transaction was already approved. Unable to cancel transaction.");
                 return false;
             }
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to cancel posted transactions.");
+                setMessage("This transaction was already posted. Unable to cancel transaction.");
+                return false;
+            }
+            
+            if (("4").equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was fully served. Unable to cancel transaction.");
                 return false;
             }
 
-            String lsSQL = "UPDATE " + p_oMaster.getTableName()+ " SET" +
+            String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -672,7 +681,12 @@ public class PurchaseOrder implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to post cancelled transactions.");
+                setMessage("This transaction was already cancelled. Unable to post transaction.");
+                return false;
+            }
+            
+            if (("4").equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was fully served. Unable to post transaction.");
                 return false;
             }
 
@@ -687,6 +701,8 @@ public class PurchaseOrder implements XMasDetTrans{
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
+                                ", sPostedxx = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -1004,7 +1020,17 @@ public class PurchaseOrder implements XMasDetTrans{
                 addDetail(); //add detail to prevent error on the next attempt of saving
                 return false;
             }
-
+            
+            if (((String)getMaster("sSupplier")).isEmpty()){
+                setMessage("Supplier must not be empty.");
+                return false;
+            }
+            
+            if (((String)getMaster("sTermCode")).isEmpty()){
+                setMessage("Term must not be empty.");
+                return false;
+            }
+            
             //assign values to master record
             p_oMaster.first();
             p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));

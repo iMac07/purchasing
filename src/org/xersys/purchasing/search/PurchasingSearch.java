@@ -1,4 +1,4 @@
-package org.xersys.purchasing.search;
+ package org.xersys.purchasing.search;
 
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -332,6 +332,8 @@ public class PurchasingSearch implements iSearch{
                 lsSQL = getSQ_PO(); break;
             case searchPOReceiving:
                 lsSQL = getSQ_POReceiving(); break;
+            case searchPOReturn:
+                lsSQL = getSQ_POReturn(); break;
             default:
                 break;
         }
@@ -407,6 +409,14 @@ public class PurchasingSearch implements iSearch{
                 _filter_list.add("a.sReferNox"); _filter_description.add("DR No.");
                 _filter_list.add("a.cTranStat"); _filter_description.add("Status");
                 break;
+            case searchPOReturn:                
+                _fields.add("dTransact"); _fields_descript.add("Date");
+                _fields.add("sClientNm"); _fields_descript.add("Supplier");
+                _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
+                
+                _filter_list.add("IFNULL(b.sClientNm, '')"); _filter_description.add("Supplier");
+                _filter_list.add("a.cTranStat"); _filter_description.add("Status");
+                break;
             default:
                 break;
         }
@@ -454,6 +464,18 @@ public class PurchasingSearch implements iSearch{
                 " FROM PO_Receiving_Master a" +
                     " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID" +
                     " LEFT JOIN Term c ON a.sTermCode = c.sTermCode";
+
+    }
+    
+    private String getSQ_POReturn(){
+	return "SELECT" +
+                    "  a.sTransNox" +
+                    ", DATE_FORMAT(a.dTransact, '%b %d, %Y') dTransact" +
+                    ", a.sSupplier" +
+                    ", a.cTranStat" +
+                    ", IFNULL(b.sClientNm, '') sClientNm" +
+                " FROM PO_Return_Master a" +
+                    " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID";
 
     }
     
