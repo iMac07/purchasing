@@ -26,7 +26,6 @@ import org.xersys.commander.util.StringUtil;
 import org.xersys.inventory.base.InvTrans;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
-import org.xersys.parameters.search.ParamSearchF;
 import org.xersys.purchasing.search.PurchasingSearch;
 
 public class POReturn implements XMasDetTrans{
@@ -116,7 +115,7 @@ public class POReturn implements XMasDetTrans{
                 case "sSupplier":
                     getSupplier("a.sClientID", foValue);
                     return;
-                case "sPOTransx":
+                case "sSourceNo":
                     getSource("sTransNox", foValue);
                     return;
                 default:
@@ -528,12 +527,17 @@ public class POReturn implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve cancelled transactons");
+                setMessage("This transaction was already cancelled. Unable to close transaction.");
                 return false;
             }        
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve posted transactons");
+                setMessage("This transaction was already posted. Unable to close transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to close transaction.");
                 return false;
             }
 
@@ -584,20 +588,22 @@ public class POReturn implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level/approval code here if we will allow them to cancel approved/posted transactions
-
             if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){   
-                setMessage("Unable to cancel approved transactions.");
+                setMessage("This transaction was already approved. Unable to cancel transaction.");
                 return false;
             }
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to cancel posted transactions.");
+                setMessage("This transaction was already posted. Unable to cancel transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to cancel transaction.");
                 return false;
             }
 
-            String lsSQL = "UPDATE " + p_oMaster.getTableName()+ " SET" +
+            String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -680,7 +686,12 @@ public class POReturn implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to post cancelled transactions.");
+                setMessage("This transaction was already cancelled. Unable to post transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to post transaction.");
                 return false;
             }
 
@@ -688,9 +699,6 @@ public class POReturn implements XMasDetTrans{
                 setMessage("Transaction was already posted.");
                 return false;
             }
-
-            //todo:
-            //  check if user level validation is still needed
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
@@ -760,7 +768,7 @@ public class POReturn implements XMasDetTrans{
         p_oSearchSource.setValue(foValue);
         p_oSearchSource.setExact(fbExact);
         
-        p_oSearchSource.addFilter("Status", 2);
+        p_oSearchSource.addFilter("Status", 1);
         
         return p_oSearchSource.Search();
     }
@@ -1146,9 +1154,10 @@ public class POReturn implements XMasDetTrans{
             loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
             
             
-            PurchaseOrder loOrder = new PurchaseOrder(p_oNautilus, p_sBranchCd, true);
+            POReceiving loOrder = new POReceiving(p_oNautilus, p_sBranchCd, true);
             loOrder.setSaveToDisk(false);
-            loOrder.setTranStat(2);
+            loOrder.setTranStat(1);
+            
             //open PO
             if (loOrder.OpenTransaction((String) loJSON.get("sTransNox"))){
                 //assign master
@@ -1157,7 +1166,9 @@ public class POReturn implements XMasDetTrans{
                 p_oMaster.updateObject("sCompnyID", (String) loOrder.getMaster("sCompnyID"));
                 p_oMaster.updateObject("sInvTypCd", (String) loOrder.getMaster("sInvTypCd"));
                 p_oMaster.updateObject("sSourceNo", (String) loOrder.getMaster("sTransNox"));
-                p_oMaster.updateObject("sSourceCd", "PO");
+                p_oMaster.updateObject("sSourceCd", "PRec");
+                p_oMaster.updateObject("sPOTransx", (String) loOrder.getMaster("sSourceNo"));
+                
                 p_oMaster.updateRow();
                 
                 if (((String) loOrder.getMaster("sSupplier")).isEmpty()){
@@ -1168,16 +1179,6 @@ public class POReturn implements XMasDetTrans{
                     
                     if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", "");
                 } else setMaster("sSupplier", (String) loOrder.getMaster("sSupplier"));
-                
-                if (((String) loOrder.getMaster("sTermCode")).isEmpty()){
-                    p_oMaster.first();
-                    p_oMaster.updateObject("sTermCode", "");
-                    p_oMaster.updateObject("sTermName", "");
-                    p_oMaster.updateRow();
-                    
-                    if (p_oListener != null) p_oListener.MasterRetreive("sTermCode", "");
-                } else setMaster("sTermCode", (String) loOrder.getMaster("sTermCode"));
-                
                 
                 //create empty detail record
                 RowSetFactory factory = RowSetProvider.newFactory();
@@ -1193,12 +1194,14 @@ public class POReturn implements XMasDetTrans{
                 int lnCtr;
                 for (lnCtr = 0; lnCtr <= loOrder.getItemCount()-1; lnCtr++){
                     lnRow = getItemCount() - 1;
-                    setDetail(lnRow, "sStockIDx", (String) loOrder.getDetail(lnCtr, "sStockIDx"));
-                    setDetail(lnRow, "nQuantity", (int) loOrder.getDetail(lnCtr, "nQuantity"));
+                    setDetail(lnRow, "sStockIDx", loOrder.getDetail(lnCtr, "sStockIDx"));
+                    setDetail(lnRow, "nQuantity", loOrder.getDetail(lnCtr, "nQuantity"));
+                    setDetail(lnRow, "nUnitPrce", loOrder.getDetail(lnCtr, "nUnitPrce"));
+                    setDetail(lnRow, "nFreightx", loOrder.getDetail(lnCtr, "nFreightx"));                    
                 }
             }
             
-            if (p_oListener != null) p_oListener.MasterRetreive("sReferNox", getMaster("sReferNox"));
+            if (p_oListener != null) p_oListener.MasterRetreive("sSourceNo", getMaster("sSourceNo"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
     }
@@ -1220,7 +1223,7 @@ public class POReturn implements XMasDetTrans{
                     loTrans.setMaster(lnCtr, "nQtyIssue", p_oDetail.getInt("nQuantity"));
             }
             
-            if (!loTrans.POReceiving(p_oMaster.getString("sTransNox"), 
+            if (!loTrans.POReturn(p_oMaster.getString("sTransNox"), 
                                         p_oMaster.getDate("dTransact"), 
                                         p_oMaster.getString("sSupplier"),
                                         EditMode.ADDNEW)){

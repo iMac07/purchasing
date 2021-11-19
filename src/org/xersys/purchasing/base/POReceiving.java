@@ -68,7 +68,7 @@ public class POReceiving implements XMasDetTrans{
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInventoryWPO);
         p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
         p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
         p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReceiving);
@@ -398,6 +398,8 @@ public class POReceiving implements XMasDetTrans{
                 Connection loConn = getConnection();
 
                 p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, loConn, p_sBranchCd));
+                p_oMaster.updateObject("sPrepared", (String) p_oNautilus.getUserInfo("sUserIDxx"));
+                p_oMaster.updateObject("dPrepared", p_oNautilus.getServerDate());
                 p_oMaster.updateObject("dModified", p_oNautilus.getServerDate());
                 p_oMaster.updateRow();
                 
@@ -547,12 +549,17 @@ public class POReceiving implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve cancelled transactons");
+                setMessage("This transaction was already cancelled. Unable to close transaction.");
                 return false;
             }        
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve posted transactons");
+                setMessage("This transaction was already posted. Unable to close transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to close transaction.");
                 return false;
             }
 
@@ -615,16 +622,18 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level/approval code here if we will allow them to cancel approved/posted transactions
-
             if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){   
-                setMessage("Unable to cancel approved transactions.");
+                setMessage("This transaction was already approved. Unable to cancel transaction.");
                 return false;
             }
 
             if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to cancel posted transactions.");
+                setMessage("This transaction was already posted. Unable to cancel transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to cancel transaction.");
                 return false;
             }
 
@@ -711,7 +720,12 @@ public class POReceiving implements XMasDetTrans{
             }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to post cancelled transactions.");
+                setMessage("This transaction was already cancelled. Unable to post transaction.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("This transaction was void. Unable to post transaction.");
                 return false;
             }
 
@@ -720,12 +734,11 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  check if user level validation is still needed
-
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
-                                ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", sPostedxx = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -1061,6 +1074,16 @@ public class POReceiving implements XMasDetTrans{
                 addDetail(); //add detail to prevent error on the next attempt of saving
                 return false;
             }
+            
+            if (((String)getMaster("sSupplier")).isEmpty()){
+                setMessage("Supplier must not be empty.");
+                return false;
+            }
+            
+            if (((String)getMaster("sReferNox")).isEmpty()){
+                setMessage("Reference no. must not be empty.");
+                return false;
+            }
 
             //assign values to master record
             p_oMaster.first();
@@ -1337,7 +1360,7 @@ public class POReceiving implements XMasDetTrans{
         }
     }
     
-    private boolean updatePODetail(){
+    private boolean updatePODetail() throws SQLException{
         String lsSourceCd = String.valueOf(getMaster("sSourceCd"));
         String lsSourceNo = String.valueOf(getMaster("sSourceNo"));
         
@@ -1386,6 +1409,33 @@ public class POReceiving implements XMasDetTrans{
                         } 
                     }
                 }
+            }
+            
+            
+            lsSQL = "SELECT nQuantity, nReceived, nCancelld" +
+                    " FROM PO_Detail" +
+                    " WHERE sTransNox = " + SQLUtil.toSQL(lsSourceNo);
+            
+            ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+            boolean lbServed = true;
+            
+            while (loRS.next()){
+                if (loRS.getInt("nQuantity") > loRS.getInt("nReceived") + loRS.getInt("nCancelld")){
+                    lbServed = false;
+                    break;
+                }
+            }
+            
+            if (lbServed){
+                lsSQL = "UPDATE PO_Master SET" +
+                            "  cTranStat = '4'" +
+                            ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        " WHERE sTransNox = " + SQLUtil.toSQL(lsSourceNo);
+                
+                if(p_oNautilus.executeUpdate(lsSQL, "PO_Master", p_sBranchCd, "") <= 0){
+                    p_sMessagex = "Unable to update PO Master";
+                    return false;
+                } 
             }
         }
         
