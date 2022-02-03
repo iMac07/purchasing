@@ -56,6 +56,7 @@ public class PurchaseOrder implements XMasDetTrans{
     private InvSearchF p_oSearchItem;
     private ClientSearch p_oSearchSupplier;
     private ParamSearchF p_oSearchTerm;
+    private ParamSearchF p_oSearchBranch;
     private PurchasingSearch p_oSearchTrans;
 
     public PurchaseOrder(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
@@ -67,6 +68,7 @@ public class PurchaseOrder implements XMasDetTrans{
         p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
         p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
         p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
+        p_oSearchBranch = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchBranch);
         p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPO);
         
         loadTempTransactions();
@@ -78,6 +80,12 @@ public class PurchaseOrder implements XMasDetTrans{
         p_bWithParent = fbWithParent;
         p_nTranStat = fnTranStat;
         p_nEditMode = EditMode.UNKNOWN;
+        
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
+        p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
+        p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
+        p_oSearchBranch = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchBranch);
+        p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPO);
         
         loadTempTransactions();
     }
@@ -112,6 +120,9 @@ public class PurchaseOrder implements XMasDetTrans{
                         p_oMaster.setObject(fsFieldNm, p_oNautilus.getServerDate());
                     
                     p_oMaster.updateRow();
+                    break;
+                case "sDestinat":
+                    getBranch("sBranchCd", foValue);
                     break;
                 case "sSupplier":
                     getSupplier("a.sClientID", foValue);
@@ -298,6 +309,8 @@ public class PurchaseOrder implements XMasDetTrans{
             MiscUtil.close(loRS);
             addMasterRow();
             
+            getBranch("sBranchCd", p_sBranchCd);
+            
             //create empty detail record
             lsSQL = MiscUtil.addCondition(getSQ_Detail(), "0=1");
             loRS = p_oNautilus.executeQuery(lsSQL);
@@ -305,7 +318,7 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oDetail.populate(loRS);
             MiscUtil.close(loRS);
             addDetail();
-        } catch (SQLException ex) {
+        } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             return false;
         }
@@ -397,7 +410,7 @@ public class PurchaseOrder implements XMasDetTrans{
                             if(!p_oNautilus.getMessage().isEmpty())
                                 setMessage(p_oNautilus.getMessage());
                             else
-                                setMessage("No record updated");
+                                setMessage("No record updated.");
 
                             if (!p_bWithParent) p_oNautilus.rollbackTrans();
                             return false;
@@ -406,13 +419,12 @@ public class PurchaseOrder implements XMasDetTrans{
                     }
                 }
                 
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "sClientNm;sTermName");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "sClientNm;sTermName;xDestinat");
             }
             
             if (lsSQL.equals("")){
                 if (!p_bWithParent) p_oNautilus.rollbackTrans();
-                
-                setMessage("No record to update");
+                setMessage("No record updated.");
                 return false;
             }
             
@@ -441,6 +453,9 @@ public class PurchaseOrder implements XMasDetTrans{
         }
         
         loadTempTransactions();
+        
+        p_oMaster = null;
+        p_oDetail = null;
         p_nEditMode = EditMode.UNKNOWN;
         
         return true;
@@ -558,7 +573,10 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
+            
             return true; 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -608,6 +626,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -659,6 +679,8 @@ public class PurchaseOrder implements XMasDetTrans{
 
             if (!p_bWithParent) p_oNautilus.commitTrans();
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -714,6 +736,8 @@ public class PurchaseOrder implements XMasDetTrans{
             
             if (!p_bWithParent) p_oNautilus.commitTrans();
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
             return true;
         } catch (SQLException ex) {
@@ -750,6 +774,18 @@ public class PurchaseOrder implements XMasDetTrans{
     
     public ClientSearch getSearchSupplier(){
         return p_oSearchSupplier;
+    }
+    
+    public JSONObject searchBranch(String fsKey, Object foValue, boolean fbExact){
+        p_oSearchBranch.setKey(fsKey);
+        p_oSearchBranch.setValue(foValue);
+        p_oSearchBranch.setExact(fbExact);
+        
+        return p_oSearchBranch.Search();
+    }
+    
+    public ParamSearchF getSearchBranch(){
+        return p_oSearchBranch;
     }
     
     public JSONObject searchTerm(String fsKey, Object foValue, boolean fbExact){
@@ -808,9 +844,11 @@ public class PurchaseOrder implements XMasDetTrans{
                     ", a.dModified" +
                     ", IFNULL(b.sClientNm, '') sClientNm" +
                     ", IFNULL(c.sDescript, '') sTermName" +
+                    ", IFNULL(d.sCompnyNm, '') xDestinat" +
                 " FROM " + MASTER_TABLE + " a" +
                     " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID" +
-                    " LEFT JOIN Term c ON a.sTermCode = c.sTermCode";
+                    " LEFT JOIN Term c ON a.sTermCode = c.sTermCode" +
+                    " LEFT JOIN xxxSysClient d ON a.sDestinat = d.sBranchCd";
     }
     
     private String getSQ_Detail(){
@@ -1156,6 +1194,23 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.updateRow();            
             
             if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
+            saveToDisk(RecordStatus.ACTIVE, "");
+        }
+    }
+    
+    private void getBranch(String fsFieldNm, Object foValue) throws SQLException, ParseException{       
+        JSONObject loJSON = searchBranch(fsFieldNm, foValue, true);
+        JSONParser loParser = new JSONParser();
+
+        if ("success".equals((String) loJSON.get("result"))){
+            loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+
+            p_oMaster.first();
+            p_oMaster.updateObject("sDestinat", (String) loJSON.get("sBranchCd"));
+            p_oMaster.updateObject("xDestinat", (String) loJSON.get("sCompnyNm"));
+            p_oMaster.updateRow();            
+            
+            if (p_oListener != null) p_oListener.MasterRetreive("xDestinat", (String) p_oMaster.getObject("xDestinat"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
     }

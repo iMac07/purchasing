@@ -464,6 +464,9 @@ public class POReceiving implements XMasDetTrans{
         }
         
         loadTempTransactions();
+        
+        p_oMaster = null;
+        p_oDetail = null;
         p_nEditMode = EditMode.UNKNOWN;
         
         return true;
@@ -597,7 +600,10 @@ public class POReceiving implements XMasDetTrans{
 
             if (!p_bWithParent) p_oNautilus.commitTrans();
             
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
+            
             return true; 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -647,6 +653,8 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -698,6 +706,8 @@ public class POReceiving implements XMasDetTrans{
 
             if (!p_bWithParent) p_oNautilus.commitTrans();
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -746,6 +756,8 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;

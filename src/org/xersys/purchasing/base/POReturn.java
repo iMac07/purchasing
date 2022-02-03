@@ -442,6 +442,9 @@ public class POReturn implements XMasDetTrans{
         }
         
         loadTempTransactions();
+        
+        p_oMaster = null;
+        p_oDetail = null;
         p_nEditMode = EditMode.UNKNOWN;
         
         return true;
@@ -563,7 +566,11 @@ public class POReturn implements XMasDetTrans{
 
             if (!p_bWithParent) p_oNautilus.commitTrans();
             
+            
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
+            
             return true; 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -608,11 +615,13 @@ public class POReturn implements XMasDetTrans{
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
-            if (p_oNautilus.executeUpdate(lsSQL, p_oMaster.getTableName(), p_sBranchCd, "") <= 0){
+            if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
                 setMessage(p_oNautilus.getMessage());
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -664,6 +673,8 @@ public class POReturn implements XMasDetTrans{
 
             if (!p_bWithParent) p_oNautilus.commitTrans();
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
@@ -710,6 +721,8 @@ public class POReturn implements XMasDetTrans{
                 return false;
             }
 
+            p_oMaster = null;
+            p_oDetail = null;
             p_nEditMode  = EditMode.UNKNOWN;
 
             return true;
