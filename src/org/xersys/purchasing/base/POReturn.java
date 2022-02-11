@@ -12,6 +12,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.xersys.accounts.client.APClientTrans;
 import org.xersys.clients.search.ClientSearch;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
@@ -528,6 +529,8 @@ public class POReturn implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
+            
+            if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))) return true;
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was already cancelled. Unable to close transaction.");
@@ -544,10 +547,6 @@ public class POReturn implements XMasDetTrans{
                 return false;
             }
 
-            if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Transaction was already approved.");
-                return false;
-            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -695,6 +694,11 @@ public class POReturn implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
+            
+            if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("Transaction was already posted.");
+                return false;
+            }
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was already cancelled. Unable to post transaction.");
@@ -706,20 +710,25 @@ public class POReturn implements XMasDetTrans{
                 return false;
             }
 
-            if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Transaction was already posted.");
-                return false;
-            }
-
+            if (!p_bWithParent) p_oNautilus.beginTrans();
+            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
                 setMessage(p_oNautilus.getMessage());
                 return false;
             }
+            
+            if (!saveClientTrans()) {
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
+                return false;
+            }
+            
+            if (!p_bWithParent) p_oNautilus.commitTrans();
 
             p_oMaster = null;
             p_oDetail = null;
@@ -781,7 +790,7 @@ public class POReturn implements XMasDetTrans{
         p_oSearchSource.setValue(foValue);
         p_oSearchSource.setExact(fbExact);
         
-        p_oSearchSource.addFilter("Status", 1);
+        p_oSearchSource.addFilter("Status", 12);
         
         return p_oSearchSource.Search();
     }
@@ -1169,7 +1178,7 @@ public class POReturn implements XMasDetTrans{
             
             POReceiving loOrder = new POReceiving(p_oNautilus, p_sBranchCd, true);
             loOrder.setSaveToDisk(false);
-            loOrder.setTranStat(1);
+            loOrder.setTranStat(12);
             
             //open PO
             if (loOrder.OpenTransaction((String) loJSON.get("sTransNox"))){
@@ -1249,5 +1258,29 @@ public class POReturn implements XMasDetTrans{
         
         setMessage(loTrans.getMessage());
         return false;
+    }
+    
+    private boolean saveClientTrans() throws SQLException{        
+        APClientTrans loClient = new APClientTrans(p_oNautilus, p_sBranchCd);
+        
+        double lnPayable = p_oMaster.getDouble("nTranTotl");
+        double lnDiscount;
+        
+        if (p_oMaster.getDouble("nDiscount") > 0.00)
+            lnDiscount = lnPayable * (p_oMaster.getDouble("nDiscount") / 100) + p_oMaster.getDouble("nAddDiscx");
+        else
+            lnDiscount = p_oMaster.getDouble("nAddDiscx");
+        
+        if (!loClient.PurchaseReturn((String) getMaster("sTransNox"), 
+                                    (String) getMaster("sSupplier"), 
+                                    p_oNautilus.getServerDate(), 
+                                    0.00, 
+                                    lnPayable - lnDiscount, 
+                                    EditMode.ADDNEW)){
+            p_sMessagex = loClient.getMessage();
+            return false;
+        }
+        
+        return true;
     }
 }

@@ -32,6 +32,7 @@ import org.xersys.purchasing.search.PurchasingSearch;
 public class PurchaseOrder implements XMasDetTrans{
     private final String MASTER_TABLE = "PO_Master";
     private final String DETAIL_TABLE = "PO_Detail";
+    private final String SYSTEM_CODE = "SP";
     private final String SOURCE_CODE = "PO";
     
     private final XNautilus p_oNautilus;
@@ -42,6 +43,7 @@ public class PurchaseOrder implements XMasDetTrans{
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
+    private String p_sBrandCde;
     
     private String p_sMessagex;
     
@@ -184,7 +186,6 @@ public class PurchaseOrder implements XMasDetTrans{
                     
                     p_oMaster.first();
                     if (p_oListener != null) p_oListener.MasterRetreive("nTranTotl", p_oMaster.getObject("nTranTotl"));
-                    
                     break;
                 default:
                     p_oDetail.absolute(fnRow + 1);
@@ -435,7 +436,7 @@ public class PurchaseOrder implements XMasDetTrans{
                     setMessage("No record updated");
             } 
             
-            saveToDisk(RecordStatus.INACTIVE, (String) p_oMaster.getObject("sTransNox"));
+            saveToDisk(RecordStatus.UNKNOWN, (String) p_oMaster.getObject("sTransNox"));
 
             if (!p_bWithParent) {
                 if(!p_oNautilus.getMessage().isEmpty()){
@@ -505,7 +506,7 @@ public class PurchaseOrder implements XMasDetTrans{
                 p_nEditMode  = EditMode.READY;
                 return true;
             }
-            
+
             setMessage("No transction loaded.");
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -539,6 +540,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
+            
+            if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))) return true;
 
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was already cancelled. Unable to close transaction.");
@@ -553,12 +556,7 @@ public class PurchaseOrder implements XMasDetTrans{
             if (("4").equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was fully served. Unable to close transaction.");
                 return false;
-            }
-
-            if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Transaction was already approved.");
-                return false;
-            }
+            }            
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
@@ -702,6 +700,11 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
+            if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
+                setMessage("Transaction was already posted.");
+                return false;
+            }
+            
             if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was already cancelled. Unable to post transaction.");
                 return false;
@@ -709,11 +712,6 @@ public class PurchaseOrder implements XMasDetTrans{
             
             if (("4").equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was fully served. Unable to post transaction.");
-                return false;
-            }
-
-            if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Transaction was already posted.");
                 return false;
             }
 
@@ -756,6 +754,13 @@ public class PurchaseOrder implements XMasDetTrans{
         p_oSearchItem.setKey(fsKey);
         p_oSearchItem.setValue(foValue);
         p_oSearchItem.setExact(fbExact);
+        
+        p_oSearchItem.addFilter("Inv. Type Code", SYSTEM_CODE);
+        
+        if (p_sBrandCde.isEmpty())
+            p_oSearchItem.removeFilter("Brand Code");
+        else
+            p_oSearchItem.addFilter("Brand Code", p_sBrandCde);
         
         return p_oSearchItem.Search();
     }
@@ -1020,6 +1025,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 }
                 lnRow++;
             }
+            
+            assignBrand((String) getMaster("sSupplier"));
         } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             ex.printStackTrace();
@@ -1073,6 +1080,7 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.first();
             p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
             p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
+            p_oMaster.updateObject("sInvTypCd", SYSTEM_CODE);
             
             if (((String) p_oMaster.getObject("sDestinat")).isEmpty())
                 p_oMaster.updateObject("sDestinat", (String) p_oNautilus.getBranchConfig("sBranchCd"));
@@ -1107,6 +1115,8 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oMaster.insertRow();
         p_oMaster.moveToCurrentRow();
+        
+        p_sBrandCde = "";
     }
     
     private void computeTotal() throws SQLException{        
@@ -1191,7 +1201,9 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.first();
             p_oMaster.updateObject("sSupplier", (String) loJSON.get("sClientID"));
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
-            p_oMaster.updateRow();            
+            p_oMaster.updateRow();       
+            
+            assignBrand((String) loJSON.get("sClientID"));
             
             if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
             saveToDisk(RecordStatus.ACTIVE, "");
@@ -1262,5 +1274,20 @@ public class PurchaseOrder implements XMasDetTrans{
         
         setMessage(loTrans.getMessage());
         return false;
+    }
+    
+    private void assignBrand(String fsBrandCde) throws SQLException{
+        String lsSQL = "SELECT" +
+                            " IFNULL(sBrandCde, '') sBrandCde" +
+                        " FROM AP_Master" +
+                        " WHERE sClientID = " + SQLUtil.toSQL(fsBrandCde) +
+                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd);
+        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+
+        if (loRS.next())
+            p_sBrandCde = loRS.getString("sBrandCde");
+        else
+            p_sBrandCde = "";
+        MiscUtil.close(loRS);
     }
 }
