@@ -15,9 +15,12 @@ import org.json.simple.parser.ParseException;
 import org.xersys.accounts.client.APClientTrans;
 import org.xersys.clients.base.APClient;
 import org.xersys.clients.search.ClientSearch;
+import org.xersys.commander.contants.AccessLevel;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.contants.UserLevel;
+import org.xersys.commander.iface.LApproval;
 import org.xersys.commander.iface.LMasDetTrans;
 import org.xersys.commander.iface.XMasDetTrans;
 import org.xersys.commander.iface.XNautilus;
@@ -31,7 +34,7 @@ import org.xersys.lib.pojo.Temp_Transactions;
 import org.xersys.parameters.search.ParamSearchF;
 import org.xersys.purchasing.search.PurchasingSearch;
 
-public class POReceiving implements XMasDetTrans{
+public class POReceiving implements XMasDetTrans{    
     private final String MASTER_TABLE = "PO_Receiving_Master";
     private final String DETAIL_TABLE = "PO_Receiving_Detail";
     private final String SERIAL_TABLE = "PO_Receiving_Serial";
@@ -44,6 +47,7 @@ public class POReceiving implements XMasDetTrans{
     private final String p_sBranchCd;
     
     private LMasDetTrans p_oListener;
+    private LApproval p_oApproval;
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
@@ -92,6 +96,10 @@ public class POReceiving implements XMasDetTrans{
     @Override
     public void setListener(LMasDetTrans foValue) {
         p_oListener = foValue;
+    }
+    
+    public void setApprvListener(LApproval foValue){
+        p_oApproval = foValue;
     }
 
     @Override
@@ -573,6 +581,13 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
+            
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
             if (!saveInvTrans()) return false;
@@ -589,7 +604,7 @@ public class POReceiving implements XMasDetTrans{
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
                                 ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -644,9 +659,18 @@ public class POReceiving implements XMasDetTrans{
                 setMessage("This transaction was void. Unable to cancel transaction.");
                 return false;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -683,8 +707,12 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level here
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
 
@@ -744,13 +772,20 @@ public class POReceiving implements XMasDetTrans{
             if ((TransactionStatus.STATE_VOID).equals((String) p_oMaster.getObject("cTranStat"))){
                 setMessage("This transaction was void. Unable to post transaction.");
                 return false;
+            }            
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
             }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
-                                ", sPostedxx = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", sPostedxx = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
                                 ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));

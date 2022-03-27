@@ -14,9 +14,12 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.xersys.accounts.client.APClientTrans;
 import org.xersys.clients.search.ClientSearch;
+import org.xersys.commander.contants.AccessLevel;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.contants.UserLevel;
+import org.xersys.commander.iface.LApproval;
 import org.xersys.commander.iface.LMasDetTrans;
 import org.xersys.commander.iface.XMasDetTrans;
 import org.xersys.commander.iface.XNautilus;
@@ -39,6 +42,7 @@ public class POReturn implements XMasDetTrans{
     private final String p_sBranchCd;
     
     private LMasDetTrans p_oListener;
+    private LApproval p_oApproval;
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
@@ -85,6 +89,10 @@ public class POReturn implements XMasDetTrans{
     @Override
     public void setListener(LMasDetTrans foValue) {
         p_oListener = foValue;
+    }
+    
+    public void setApprvListener(LApproval foValue){
+        p_oApproval = foValue;
     }
 
     @Override
@@ -546,7 +554,13 @@ public class POReturn implements XMasDetTrans{
                 setMessage("This transaction was void. Unable to close transaction.");
                 return false;
             }
-
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -554,6 +568,8 @@ public class POReturn implements XMasDetTrans{
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -608,9 +624,18 @@ public class POReturn implements XMasDetTrans{
                 setMessage("This transaction was void. Unable to cancel transaction.");
                 return false;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -647,8 +672,12 @@ public class POReturn implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level here
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
 
@@ -709,11 +738,20 @@ public class POReturn implements XMasDetTrans{
                 setMessage("This transaction was void. Unable to post transaction.");
                 return false;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
+                                ", sPostedxx = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
+                                ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
