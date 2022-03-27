@@ -13,9 +13,12 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.xersys.clients.search.ClientSearch;
+import org.xersys.commander.contants.AccessLevel;
 import org.xersys.commander.contants.EditMode;
+import org.xersys.commander.contants.UserLevel;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.iface.LApproval;
 import org.xersys.commander.iface.LMasDetTrans;
 import org.xersys.commander.iface.XMasDetTrans;
 import org.xersys.commander.iface.XNautilus;
@@ -40,6 +43,7 @@ public class PurchaseOrder implements XMasDetTrans{
     private final String p_sBranchCd;
     
     private LMasDetTrans p_oListener;
+    private LApproval p_oApproval;
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
@@ -96,6 +100,10 @@ public class PurchaseOrder implements XMasDetTrans{
     public void setListener(LMasDetTrans foValue) {
         p_oListener = foValue;
     }
+    
+    public void setApprvListener(LApproval foValue){
+        p_oApproval = foValue;
+    }
 
     @Override
     public void setSaveToDisk(boolean fbValue) {
@@ -103,7 +111,7 @@ public class PurchaseOrder implements XMasDetTrans{
     }
 
     @Override
-    public void setMaster(String fsFieldNm, Object foValue) {
+    public void setMaster(int fnIndex, Object foValue) {
         if (p_nEditMode != EditMode.ADDNEW &&
             p_nEditMode != EditMode.UPDATE){
             System.err.println("Transaction is not on update mode.");
@@ -113,34 +121,44 @@ public class PurchaseOrder implements XMasDetTrans{
         try {
             p_oMaster.first();
             
-            switch (fsFieldNm){
-                case "dTransact":
-                case "dCreatedx":
+            switch (fnIndex){
+                case 3: //dTransact
+                case 25: //dCreatedx
                     if (StringUtil.isDate(String.valueOf(foValue), SQLUtil.FORMAT_TIMESTAMP))
-                        p_oMaster.setObject(fsFieldNm, foValue);
+                        p_oMaster.setObject(fnIndex, foValue);
                     else 
-                        p_oMaster.setObject(fsFieldNm, p_oNautilus.getServerDate());
+                        p_oMaster.setObject(fnIndex, p_oNautilus.getServerDate());
                     
                     p_oMaster.updateRow();
                     break;
-                case "sDestinat":
+                case 5: //sDestinat
                     getBranch("sBranchCd", foValue);
                     break;
-                case "sSupplier":
+                case 6: //sSupplier
                     getSupplier("a.sClientID", foValue);
                     return;
-                case "sTermCode":
+                case 8: //sTermCode
                     getTerm("sTermCode", foValue);
                     return;
                 default:
-                    p_oMaster.updateObject(fsFieldNm, foValue);
+                    p_oMaster.updateObject(fnIndex, foValue);
                     p_oMaster.updateRow();
             }
             
-            if (p_oListener != null) p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
+            if (p_oListener != null) p_oListener.MasterRetreive(fnIndex, p_oMaster.getObject(fnIndex));
              
             saveToDisk(RecordStatus.ACTIVE, "");
         } catch (SQLException | ParseException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+        }
+    }
+    
+    @Override
+    public void setMaster(String fsFieldNm, Object foValue) {
+        try {
+            setMaster(MiscUtil.getColumnIndex(p_oMaster, fsFieldNm), foValue);
+        } catch (SQLException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
         }
@@ -151,7 +169,7 @@ public class PurchaseOrder implements XMasDetTrans{
         try {
             p_oMaster.first();
             
-            return p_oMaster.getObject(fsFieldNm);
+            return getMaster(MiscUtil.getColumnIndex(p_oMaster, fsFieldNm));
         } catch (SQLException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
@@ -159,15 +177,19 @@ public class PurchaseOrder implements XMasDetTrans{
         
         return null;
     }
-
-    @Override
-    public void setMaster(int fnIndex, Object foValue) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
+    
     @Override
     public Object getMaster(int fnIndex) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        try {
+            p_oMaster.first();
+            
+            return p_oMaster.getObject(fnIndex);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+        }
+        
+        return null;
     }
 
     @Override
@@ -558,9 +580,16 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }            
             
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
+            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
                                 ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -613,9 +642,18 @@ public class PurchaseOrder implements XMasDetTrans{
                 setMessage("This transaction was fully served. Unable to cancel transaction.");
                 return false;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
+                                ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
+                                ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -652,8 +690,12 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
 
-            //todo:
-            //  validate user level here
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
 
@@ -714,6 +756,13 @@ public class PurchaseOrder implements XMasDetTrans{
                 setMessage("This transaction was fully served. Unable to post transaction.");
                 return false;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -721,7 +770,7 @@ public class PurchaseOrder implements XMasDetTrans{
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
-                                ", sPostedxx = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                                ", sPostedxx = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
                                 ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -1203,9 +1252,13 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
             p_oMaster.updateRow();       
             
-            assignBrand((String) loJSON.get("sClientID"));
+            //assignBrand((String) loJSON.get("sClientID"));
+            p_sBrandCde = (String) loJSON.get("sBrandCde");
             
-            if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
+            if (!String.valueOf(loJSON.get("sTermCode")).equals(""))
+                getTerm("sTermCode", (String) loJSON.get("sTermCode"));       
+            
+            if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) getMaster("sClientNm"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
     }

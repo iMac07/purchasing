@@ -9,7 +9,7 @@ import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
 
 public class PurchasingSearch implements iSearch{
-    private final int DEFAULT_MAX_RESULT = 25;
+    private final int DEFAULT_MAX_RESULT = 1000;
     
     private XNautilus _app = null;  
     private String _message = "";
@@ -348,7 +348,9 @@ public class PurchasingSearch implements iSearch{
         if (_search_exact)
             lsSQL = MiscUtil.addCondition(lsSQL, _search_key + " = " + SQLUtil.toSQL(_search_value));
         else
-            lsSQL = MiscUtil.addCondition(lsSQL, _search_key + " LIKE " + SQLUtil.toSQL("%" + _search_value + "%"));
+            lsSQL = MiscUtil.addCondition(lsSQL, _search_key + " LIKE " + SQLUtil.toSQL(_search_value + "%"));
+        
+        //lsSQL = MiscUtil.addCondition(lsSQL, _search_key + " LIKE " + SQLUtil.toSQL("%" + _search_value + "%"));
         
         //add filter on query
         if (!_filter.isEmpty()){
