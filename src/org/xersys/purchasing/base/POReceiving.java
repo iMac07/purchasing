@@ -74,7 +74,7 @@ public class POReceiving implements XMasDetTrans{
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInventoryWPO);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
         p_oSearchSupplier = new ClientSearch(p_oNautilus, ClientSearch.SearchType.searchSupplier);
         p_oSearchTerm = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchTerm);
         p_oSearchTrans = new PurchasingSearch(p_oNautilus, PurchasingSearch.SearchType.searchPOReceiving);
@@ -1366,12 +1366,13 @@ public class POReceiving implements XMasDetTrans{
             for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
                 p_oDetail.absolute(lnCtr + 1);
                 loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
+                loTrans.setMaster(lnCtr, "sSupersed", p_oDetail.getString("sReplacID"));
                 loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nQuantity"));
             
-                if ("X0W1".contains(p_oMaster.getString("sBranchCd")))
-                    loTrans.setMaster(lnCtr, "nQtyOrder", p_oDetail.getInt("nQuantity"));
-                else
-                    loTrans.setMaster(lnCtr, "nQtyIssue", p_oDetail.getInt("nQuantity"));
+//                if ("X0W1".contains(p_oMaster.getString("sBranchCd")))
+//                    loTrans.setMaster(lnCtr, "nQtyOrder", p_oDetail.getInt("nQuantity"));
+//                else
+//                    loTrans.setMaster(lnCtr, "nQtyIssue", p_oDetail.getInt("nQuantity"));
             }
             
             if (!loTrans.POReceiving(p_oMaster.getString("sTransNox"), 
