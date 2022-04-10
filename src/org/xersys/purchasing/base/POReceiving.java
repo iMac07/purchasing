@@ -597,11 +597,6 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
             
-//            if (!updateAPClient()){
-//                if (!p_bWithParent) p_oNautilus.rollbackTrans();
-//                return false;
-//            }
-            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
                                 ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
