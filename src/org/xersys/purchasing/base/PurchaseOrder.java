@@ -49,7 +49,6 @@ public class PurchaseOrder implements XMasDetTrans{
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
-    private String p_sBrandCde;
     
     private String p_sMessagex;
     
@@ -810,10 +809,11 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oSearchItem.addFilter("Inv. Type Code", SYSTEM_CODE);
         
-        if (p_sBrandCde.isEmpty())
-            p_oSearchItem.removeFilter("Brand Code");
+        String lsSupplier = (String) getMaster("sSupplier");
+        if (lsSupplier.isEmpty())
+            p_oSearchItem.removeFilter("Supplier");
         else
-            p_oSearchItem.addFilter("Brand Code", p_sBrandCde);
+            p_oSearchItem.addFilter("Supplier", lsSupplier);
         
         return p_oSearchItem.Search();
     }
@@ -1078,8 +1078,6 @@ public class PurchaseOrder implements XMasDetTrans{
                 }
                 lnRow++;
             }
-            
-            assignBrand((String) getMaster("sSupplier"));
         } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             ex.printStackTrace();
@@ -1170,8 +1168,6 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oMaster.insertRow();
         p_oMaster.moveToCurrentRow();
-        
-        p_sBrandCde = "";
     }
     
     private void computeTotal() throws SQLException{        
@@ -1258,9 +1254,6 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
             p_oMaster.updateRow();       
             
-            //assignBrand((String) loJSON.get("sClientID"));
-            p_sBrandCde = (String) loJSON.get("sBrandCde");
-            
             if (!String.valueOf(loJSON.get("sTermCode")).equals(""))
                 getTerm("sTermCode", (String) loJSON.get("sTermCode"));       
             
@@ -1333,21 +1326,6 @@ public class PurchaseOrder implements XMasDetTrans{
         
         setMessage(loTrans.getMessage());
         return false;
-    }
-    
-    private void assignBrand(String fsBrandCde) throws SQLException{
-        String lsSQL = "SELECT" +
-                            " IFNULL(sBrandCde, '') sBrandCde" +
-                        " FROM AP_Master" +
-                        " WHERE sClientID = " + SQLUtil.toSQL(fsBrandCde) +
-                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd);
-        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
-
-        if (loRS.next())
-            p_sBrandCde = loRS.getString("sBrandCde");
-        else
-            p_sBrandCde = "";
-        MiscUtil.close(loRS);
     }
     
     //get the latest quantity on hand of the items

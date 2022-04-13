@@ -1268,6 +1268,9 @@ public class POReceiving implements XMasDetTrans{
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
             p_oMaster.updateRow();            
             
+            if (!String.valueOf(loJSON.get("sTermCode")).equals(""))
+                getTerm("sTermCode", (String) loJSON.get("sTermCode"));       
+            
             if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
