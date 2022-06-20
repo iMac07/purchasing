@@ -809,11 +809,11 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oSearchItem.addFilter("Inv. Type Code", SYSTEM_CODE);
         
-        String lsSupplier = (String) getMaster("sSupplier");
-        if (lsSupplier.isEmpty())
-            p_oSearchItem.removeFilter("Supplier");
-        else
-            p_oSearchItem.addFilter("Supplier", lsSupplier);
+//        String lsSupplier = (String) getMaster("sSupplier");
+//        if (lsSupplier.isEmpty())
+//            p_oSearchItem.removeFilter("Supplier");
+//        else
+//            p_oSearchItem.addFilter("Supplier", lsSupplier);
         
         return p_oSearchItem.Search();
     }
