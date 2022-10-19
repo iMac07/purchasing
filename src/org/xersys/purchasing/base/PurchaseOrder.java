@@ -5,6 +5,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
@@ -47,7 +49,6 @@ public class PurchaseOrder implements XMasDetTrans{
     private boolean p_bSaveToDisk;
     
     private String p_sOrderNox;
-    private String p_sBrandCde;
     
     private String p_sMessagex;
     
@@ -372,8 +373,9 @@ public class PurchaseOrder implements XMasDetTrans{
                 lbLoad = toDTO(loTran.getString("sPayloadx"));
             }
             
+            refreshOnHand();
             computeTotal();
-        } catch (SQLException ex) {
+        } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             lbLoad = false;
         } finally {
@@ -767,6 +769,7 @@ public class PurchaseOrder implements XMasDetTrans{
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
             if (!saveInvTrans()) return false;
+            if (!updateSource()) return false;
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_POSTED +
@@ -806,10 +809,11 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oSearchItem.addFilter("Inv. Type Code", SYSTEM_CODE);
         
-        if (p_sBrandCde.isEmpty())
-            p_oSearchItem.removeFilter("Brand Code");
-        else
-            p_oSearchItem.addFilter("Brand Code", p_sBrandCde);
+//        String lsSupplier = (String) getMaster("sSupplier");
+//        if (lsSupplier.isEmpty())
+//            p_oSearchItem.removeFilter("Supplier");
+//        else
+//            p_oSearchItem.addFilter("Supplier", lsSupplier);
         
         return p_oSearchItem.Search();
     }
@@ -1074,8 +1078,6 @@ public class PurchaseOrder implements XMasDetTrans{
                 }
                 lnRow++;
             }
-            
-            assignBrand((String) getMaster("sSupplier"));
         } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             ex.printStackTrace();
@@ -1125,6 +1127,8 @@ public class PurchaseOrder implements XMasDetTrans{
                 return false;
             }
             
+            refreshOnHand();
+            
             //assign values to master record
             p_oMaster.first();
             p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
@@ -1148,7 +1152,7 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.updateRow();
 
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException | ParseException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
             return false;
@@ -1164,8 +1168,6 @@ public class PurchaseOrder implements XMasDetTrans{
         
         p_oMaster.insertRow();
         p_oMaster.moveToCurrentRow();
-        
-        p_sBrandCde = "";
     }
     
     private void computeTotal() throws SQLException{        
@@ -1252,9 +1254,6 @@ public class PurchaseOrder implements XMasDetTrans{
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
             p_oMaster.updateRow();       
             
-            //assignBrand((String) loJSON.get("sClientID"));
-            p_sBrandCde = (String) loJSON.get("sBrandCde");
-            
             if (!String.valueOf(loJSON.get("sTermCode")).equals(""))
                 getTerm("sTermCode", (String) loJSON.get("sTermCode"));       
             
@@ -1329,18 +1328,51 @@ public class PurchaseOrder implements XMasDetTrans{
         return false;
     }
     
-    private void assignBrand(String fsBrandCde) throws SQLException{
-        String lsSQL = "SELECT" +
-                            " IFNULL(sBrandCde, '') sBrandCde" +
-                        " FROM AP_Master" +
-                        " WHERE sClientID = " + SQLUtil.toSQL(fsBrandCde) +
-                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd);
-        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
-
-        if (loRS.next())
-            p_sBrandCde = loRS.getString("sBrandCde");
-        else
-            p_sBrandCde = "";
-        MiscUtil.close(loRS);
+    //get the latest quantity on hand of the items
+    private void refreshOnHand() throws SQLException, ParseException{
+        JSONObject loJSON;
+        JSONParser loParser = new JSONParser();
+        
+        for (int lnCtr = 0; lnCtr <= getItemCount()-1; lnCtr++){
+            p_oDetail.absolute(lnCtr + 1);
+            
+            if (p_oDetail.getString("sStockIDx").isEmpty()) break;
+            
+            loJSON = searchBranchInventory("a.sStockIDx", p_oDetail.getString("sStockIDx"), true);
+            
+            if ("success".equals((String) loJSON.get("result"))){
+                loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+                p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
+                p_oDetail.updateRow();
+            }
+        }
+        
+        saveToDisk(RecordStatus.ACTIVE, "");
+    }   
+    
+    private boolean updateSource() throws SQLException{
+        String lsSQL;
+        
+        switch ((String) getMaster("sSourceCd")){
+            case "CO":
+                for (int lnCtr = 0; lnCtr <= getItemCount()-1; lnCtr++){
+                    p_oDetail.absolute(lnCtr + 1);
+                    
+                    lsSQL = "UPDATE SP_Sales_Order_Detail SET" +
+                                "  nApproved = nApproved + " + p_oDetail.getInt("nQuantity") +
+                            " WHERE sTransNox  = " + SQLUtil.toSQL((String) getMaster("sSourceNo")) +
+                                " AND sStockIDx = " + SQLUtil.toSQL(p_oDetail.getString("sStockIDx"));
+                    
+                    if (p_oNautilus.executeUpdate(lsSQL, "SP_Sales_Order_Detail", p_sBranchCd, "") <= 0){
+                        System.err.println(p_oNautilus.getMessage());
+                        setMessage("Unable to update Customer Order.");
+                        return false;
+                    }
+                    
+                }
+                return true;
+            default:
+                return true;
+        }
     }
 }

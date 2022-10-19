@@ -344,8 +344,9 @@ public class POReturn implements XMasDetTrans{
                 lbLoad = toDTO(loTran.getString("sPayloadx"));
             }
             
+            refreshOnHand();
             computeTotal();
-        } catch (SQLException ex) {
+        } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             lbLoad = false;
         } finally {
@@ -1079,6 +1080,8 @@ public class POReturn implements XMasDetTrans{
                 addDetail(); //add detail to prevent error on the next attempt of saving
                 return false;
             }
+            
+            refreshOnHand();
 
             //assign values to master record
             p_oMaster.first();
@@ -1099,7 +1102,7 @@ public class POReturn implements XMasDetTrans{
             p_oMaster.updateRow();
 
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException | ParseException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
             return false;
@@ -1321,4 +1324,26 @@ public class POReturn implements XMasDetTrans{
         
         return true;
     }
+    
+    //get the latest quantity on hand of the items
+    private void refreshOnHand() throws SQLException, ParseException{
+        JSONObject loJSON;
+        JSONParser loParser = new JSONParser();
+        
+        for (int lnCtr = 0; lnCtr <= getItemCount()-1; lnCtr++){
+            p_oDetail.absolute(lnCtr + 1);
+            
+            if (p_oDetail.getString("sStockIDx").isEmpty()) break;
+            
+            loJSON = searchBranchInventory("a.sStockIDx", p_oDetail.getString("sStockIDx"), true);
+            
+            if ("success".equals((String) loJSON.get("result"))){
+                loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+                p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
+                p_oDetail.updateRow();
+            }
+        }
+        
+        saveToDisk(RecordStatus.ACTIVE, "");
+    }   
 }

@@ -367,8 +367,9 @@ public class POReceiving implements XMasDetTrans{
                 lbLoad = toDTO(loTran.getString("sPayloadx"));
             }
             
+            refreshOnHand();
             computeTotal();
-        } catch (SQLException ex) {
+        } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             lbLoad = false;
         } finally {
@@ -596,11 +597,6 @@ public class POReceiving implements XMasDetTrans{
                 if (!p_bWithParent) p_oNautilus.rollbackTrans();
                 return false;
             }
-            
-//            if (!updateAPClient()){
-//                if (!p_bWithParent) p_oNautilus.rollbackTrans();
-//                return false;
-//            }
             
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
@@ -1143,6 +1139,8 @@ public class POReceiving implements XMasDetTrans{
                 setMessage("Reference no. must not be empty.");
                 return false;
             }
+            
+            refreshOnHand();
 
             //assign values to master record
             p_oMaster.first();
@@ -1167,7 +1165,7 @@ public class POReceiving implements XMasDetTrans{
             p_oMaster.updateRow();
 
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException | ParseException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
             return false;
@@ -1270,6 +1268,9 @@ public class POReceiving implements XMasDetTrans{
             p_oMaster.updateObject("sClientNm", (String) loJSON.get("sClientNm"));
             p_oMaster.updateRow();            
             
+            if (!String.valueOf(loJSON.get("sTermCode")).equals(""))
+                getTerm("sTermCode", (String) loJSON.get("sTermCode"));       
+            
             if (p_oListener != null) p_oListener.MasterRetreive("sSupplier", (String) p_oMaster.getObject("sClientNm"));
             saveToDisk(RecordStatus.ACTIVE, "");
         }
@@ -1310,8 +1311,9 @@ public class POReceiving implements XMasDetTrans{
                 p_oMaster.updateObject("sBranchCd", (String) loOrder.getMaster("sBranchCd"));
                 p_oMaster.updateObject("sCompnyID", (String) loOrder.getMaster("sCompnyID"));
                 p_oMaster.updateObject("sInvTypCd", (String) loOrder.getMaster("sInvTypCd"));
-                p_oMaster.updateObject("sSourceNo", (String) loOrder.getMaster("sTransNox"));
                 p_oMaster.updateObject("sSourceCd", "PO");
+                p_oMaster.updateObject("sSourceNo", (String) loOrder.getMaster("sTransNox"));
+                p_oMaster.updateObject("sRemarksx", (String) loOrder.getMaster("sRemarksx"));
                 p_oMaster.updateRow();
                 
                 if (((String) loOrder.getMaster("sSupplier")).isEmpty()){
@@ -1529,5 +1531,27 @@ public class POReceiving implements XMasDetTrans{
         
         return true;
     }
+    
+    //get the latest quantity on hand of the items
+    private void refreshOnHand() throws SQLException, ParseException{
+        JSONObject loJSON;
+        JSONParser loParser = new JSONParser();
+        
+        for (int lnCtr = 0; lnCtr <= getItemCount()-1; lnCtr++){
+            p_oDetail.absolute(lnCtr + 1);
+            
+            if (p_oDetail.getString("sStockIDx").isEmpty()) break;
+            
+            loJSON = searchBranchInventory("a.sStockIDx", p_oDetail.getString("sStockIDx"), true);
+            
+            if ("success".equals((String) loJSON.get("result"))){
+                loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+                p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
+                p_oDetail.updateRow();
+            }
+        }
+        
+        saveToDisk(RecordStatus.ACTIVE, "");
+    }   
 }
 
