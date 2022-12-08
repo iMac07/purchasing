@@ -598,6 +598,11 @@ public class POReceiving implements XMasDetTrans{
                 return false;
             }
             
+            if (!updateCost()){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
+                return false;
+            }
+            
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CLOSED +
                                 ", sApproved = " + SQLUtil.toSQL(System.getProperty("sUserIDxx")) +
@@ -1424,6 +1429,35 @@ public class POReceiving implements XMasDetTrans{
                                 "Please create first before confirmation of this transaction.";
             return false;
         }
+    }
+    
+    private boolean updateCost() throws SQLException{
+        String lsSQL;
+        ResultSet loRS;
+        
+        int lnRow = getItemCount();
+        
+        for (int lnCtr = 0; lnCtr <= lnRow - 1; lnCtr++){
+            lsSQL = "SELECT nUnitPrce FROM Inventory WHERE sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+            
+            loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (loRS.next()){
+                if (loRS.getDouble("nUnitPrce") != (double) getDetail(lnCtr, "nUnitPrce")){
+                    lsSQL = "UPDATE Inventory SET" +
+                                "  nUnitPrce = " + (double) getDetail(lnCtr, "nUnitPrce") +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                            " WHERE sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+                    
+                    if(p_oNautilus.executeUpdate(lsSQL, "Inventory", p_sBranchCd, "") <= 0){
+                        p_sMessagex = "Unable to update Inventory info.";
+                        return false;
+                    } 
+                }
+            } 
+        }
+        
+        return true;
     }
     
     private boolean updatePODetail() throws SQLException{
