@@ -583,11 +583,24 @@ public class POReceiving implements XMasDetTrans{
             }
 
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
             
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -662,11 +675,24 @@ public class POReceiving implements XMasDetTrans{
             }
             
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
@@ -776,11 +802,25 @@ public class POReceiving implements XMasDetTrans{
             }            
             
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+            
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -1434,9 +1474,36 @@ public class POReceiving implements XMasDetTrans{
     private boolean updateCost() throws SQLException{
         String lsSQL;
         ResultSet loRS;
+        boolean lbApproval = false;
         
         int lnRow = getItemCount();
         
+//        TODO: enable this for owner approval of change costs.
+        for (int lnCtr = 0; lnCtr <= lnRow - 1; lnCtr++){
+            lsSQL = "SELECT nUnitPrce FROM Inventory WHERE sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
+            
+            loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (loRS.next()){
+                if (loRS.getDouble("nUnitPrce") != (double) getDetail(lnCtr, "nUnitPrce")){
+                    lbApproval = true;
+                }
+            } 
+        }
+        
+        if (lbApproval){
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER){
+                p_oApproval.ShowMessage("Cost of some items was changed. Owner approval is needed.");
+                
+                if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.OWNER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
+            }
+        }
+                
         for (int lnCtr = 0; lnCtr <= lnRow - 1; lnCtr++){
             lsSQL = "SELECT nUnitPrce FROM Inventory WHERE sStockIDx = " + SQLUtil.toSQL((String) getDetail(lnCtr, "sStockIDx"));
             

@@ -557,11 +557,25 @@ public class POReturn implements XMasDetTrans{
             }
             
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+            
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -627,11 +641,25 @@ public class POReturn implements XMasDetTrans{
             }
             
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+            
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
 
             String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                                 "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
@@ -741,11 +769,25 @@ public class POReturn implements XMasDetTrans{
             }
             
             //check if user is allowed
-            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
-                setMessage(System.getProperty("sMessagex"));
-                System.setProperty("sMessagex", "");
-                return false;
+            if ((int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.SUPERVISOR &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MANAGER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.OWNER &&
+                    (int) p_oNautilus.getUserInfo("nUserLevl") != UserLevel.MASTER){
+                if (!p_oNautilus.isUserAuthorized(p_oApproval,
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER + UserLevel.MASTER,
+                    AccessLevel.PURCHASING)){
+                    setMessage(System.getProperty("sMessagex"));
+                    System.setProperty("sMessagex", "");
+                    return false;
+                }            
             }
+            
+//            //check if user is allowed
+//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.ACCOUNTING)){
+//                setMessage(System.getProperty("sMessagex"));
+//                System.setProperty("sMessagex", "");
+//                return false;
+//            }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
