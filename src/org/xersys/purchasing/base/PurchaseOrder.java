@@ -5,8 +5,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
@@ -409,7 +407,7 @@ public class PurchaseOrder implements XMasDetTrans{
             String lsSQL = "";
             
             if (!p_bWithParent) p_oNautilus.beginTrans();
-        
+            System.out.println((String) getMaster("sTransNox"));
             if ("".equals((String) getMaster("sTransNox"))){ //new record
                 Connection loConn = getConnection();
 
@@ -1159,6 +1157,11 @@ public class PurchaseOrder implements XMasDetTrans{
             
             if (((String)getMaster("sTermCode")).isEmpty()){
                 setMessage("Term must not be empty.");
+                return false;
+            }
+            
+            if (((String)getMaster("sReferNox")).length() > 8){
+                setMessage("PO Number is too long.");
                 return false;
             }
             
