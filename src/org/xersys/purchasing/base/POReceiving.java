@@ -594,13 +594,9 @@ public class POReceiving implements XMasDetTrans{
                     System.setProperty("sMessagex", "");
                     return false;
                 }            
+            } else {
+                System.setProperty("sUserIDxx", (String) p_oNautilus.getUserInfo("sUserIDxx"));
             }
-//            //check if user is allowed
-//            if (!p_oNautilus.isUserAuthorized(p_oApproval, UserLevel.MANAGER + UserLevel.SUPERVISOR, AccessLevel.PURCHASING)){
-//                setMessage(System.getProperty("sMessagex"));
-//                System.setProperty("sMessagex", "");
-//                return false;
-//            }
             
             if (!p_bWithParent) p_oNautilus.beginTrans();
             
@@ -622,7 +618,9 @@ public class POReceiving implements XMasDetTrans{
                                 ", dApproved = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                                 ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                             " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
-
+            
+            System.setProperty("sUserIDxx", (String) p_oNautilus.getUserInfo("sUserIDxx"));
+            
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
                 if (!p_bWithParent) p_oNautilus.rollbackTrans();
                 setMessage(p_oNautilus.getMessage());
@@ -1485,7 +1483,7 @@ public class POReceiving implements XMasDetTrans{
             loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (loRS.next()){
-                if (loRS.getDouble("nUnitPrce") != (double) getDetail(lnCtr, "nUnitPrce")){
+                if (loRS.getDouble("nUnitPrce") != Double.valueOf(String.valueOf(getDetail(lnCtr, "nUnitPrce")))){
                     lbApproval = true;
                 }
             } 
@@ -1510,7 +1508,7 @@ public class POReceiving implements XMasDetTrans{
             loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (loRS.next()){
-                if (loRS.getDouble("nUnitPrce") != (double) getDetail(lnCtr, "nUnitPrce")){
+                if (loRS.getDouble("nUnitPrce") != Double.valueOf(String.valueOf(getDetail(lnCtr, "nUnitPrce")))){
                     lsSQL = "UPDATE Inventory SET" +
                                 "  nUnitPrce = " + (double) getDetail(lnCtr, "nUnitPrce") +
                                 ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
