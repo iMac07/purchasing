@@ -442,7 +442,7 @@ public class PurchaseOrder implements XMasDetTrans{
                     }
                 }
                 
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "sClientNm;sTermName;xDestinat");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "sClientNm;sTermName;xDestinat;xEmailAdd");
             }
             
             if (lsSQL.equals("")){
@@ -936,8 +936,13 @@ public class PurchaseOrder implements XMasDetTrans{
                     ", IFNULL(b.sClientNm, '') sClientNm" +
                     ", IFNULL(c.sDescript, '') sTermName" +
                     ", IFNULL(d.sCompnyNm, '') xDestinat" +
+                    ", IFNULL(e.sEmailAdd, '') xEmailAdd" +
                 " FROM " + MASTER_TABLE + " a" +
-                    " LEFT JOIN Client_Master b ON a.sSupplier = b.sClientID" +
+                    " LEFT JOIN Client_Master b" +
+                        " LEFT JOIN Client_eMail_Address e" +
+                        " ON b.sClientID = e.sClientID" +
+                            " AND e.nPriority = 1" +
+                    " ON a.sSupplier = b.sClientID" +
                     " LEFT JOIN Term c ON a.sTermCode = c.sTermCode" +
                     " LEFT JOIN xxxSysClient d ON a.sDestinat = d.sBranchCd";
     }
