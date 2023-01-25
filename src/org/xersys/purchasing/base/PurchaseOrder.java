@@ -835,6 +835,25 @@ public class PurchaseOrder implements XMasDetTrans{
         return p_oTemp;
     }
     
+    public JSONArray getHistory(String fsStockIDx){
+        String lsSQL = "SELECT" +
+                            "  sPeriodxx" +
+                            ", cClassify" +
+                            ", nAvgMonSl" +
+                            ", nMinLevel" +
+                            ", nMaxLevel" +
+                        " FROM Inv_Classification_Detail" +
+                        " WHERE sStockIDx = " + SQLUtil.toSQL(fsStockIDx) +
+                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
+                        " ORDER BY sPeriodxx DESC LIMIT 6";
+        
+        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+        JSONArray loArray = MiscUtil.RS2JSON(loRS);
+        
+        MiscUtil.close(loRS);
+        return loArray;
+    }
+    
     public JSONObject searchBranchInventory(String fsKey, Object foValue, boolean fbExact){
         p_oSearchItem.setKey(fsKey);
         p_oSearchItem.setValue(foValue);
