@@ -227,8 +227,13 @@ public class PurchaseOrder implements XMasDetTrans{
     @Override
     public Object getDetail(int fnRow, String fsFieldNm) {
         try {
-            p_oDetail.absolute(fnRow + 1);            
-            return p_oDetail.getObject(fsFieldNm);
+            switch (fsFieldNm){
+                case "nRecOrder":
+                    return getROQ(fnRow + 1);
+                default:
+                    p_oDetail.absolute(fnRow + 1);            
+                    return p_oDetail.getObject(fsFieldNm);
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
@@ -964,6 +969,46 @@ public class PurchaseOrder implements XMasDetTrans{
                     " ON a.sSupplier = b.sClientID" +
                     " LEFT JOIN Term c ON a.sTermCode = c.sTermCode" +
                     " LEFT JOIN xxxSysClient d ON a.sDestinat = d.sBranchCd";
+    }
+    
+    private int getROQ(int fnRow){               
+        int lnROQ = 0;
+        ResultSet loRS = null;
+        
+        try {    
+            p_oDetail.absolute(fnRow);
+            String lsSQL = "SELECT" +
+                                "  a.nMaxLevel" +
+                                ", a.nQtyOnHnd" +
+                                ", IF(a.nMaxLevel - (IFNULL(a.nQtyOnHnd, 0) + IFNULL(b.nQuantity, 0)) < 0, 0, a.nMaxLevel - (IFNULL(a.nQtyOnHnd, 0) + IFNULL(b.nQuantity, 0)))  nRecOrder" +
+                            " FROM Inv_Master a" +
+                                " LEFT JOIN (SELECT" +
+                                                "  a.sStockIDx" +
+                                                ", SUM(a.nQuantity - a.nCancelld - a.nReceived) nQuantity" +
+                                            " FROM PO_Detail a" +
+                                                ", PO_Master b" +
+                                            " WHERE a.sTransNox = b.sTransNox" +
+                                                " AND b.sTransNox LIKE " + SQLUtil.toSQL((String) p_oNautilus.getBranchConfig("sBranchCd") + "%") +
+                                                " AND b.cTranStat IN ('1', '2')" +
+                                            " GROUP BY a.sStockIDx) b" +
+                                " ON a.sStockIDx = b.sStockIDx" +
+                            " WHERE a.sStockIDx = " + SQLUtil.toSQL(p_oDetail.getString("sStockIDx"));
+
+            loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (loRS.next()){
+                //lnROQ = loRS.getInt("nMaxLevel") - (loRS.getInt("nQtyOnHnd") + loRS.getInt("nRecOrder"));
+                lnROQ = loRS.getInt("nRecOrder");
+            }
+            
+            if (lnROQ < 0) lnROQ = 0;
+        } catch (SQLException e) {
+            lnROQ = 0;
+            e.printStackTrace();
+        }
+        
+        MiscUtil.close(loRS);
+        return lnROQ;
     }
     
     private String getSQ_Detail(){
